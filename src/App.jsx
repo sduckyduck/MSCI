@@ -2,19 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import CharacterBuilder from "./CleanCharacterBuilder";
 import {
-  answerScale,
-  firstJobDimensions,
-  firstJobProfiles,
-  firstJobQuestions,
   getConfidence,
   getDimensionSummary,
   getMissingQuestionCount,
   matchProfiles,
   scoreQuestions,
-  secondJobDimensions,
-  secondJobProfiles,
-  secondJobQuestions,
 } from "./model/msciModel";
+import { getModeModel, modeOptions } from "./model/msciModes";
 
 const stageLabels = {
   intro: "说明",
@@ -44,14 +38,79 @@ function CompletionBadge({ missing, total }) {
   );
 }
 
+function IntroHeroBanner({ candidates }) {
+  const safeCandidates = Array.isArray(candidates) && candidates.length ? candidates : ["/assets/msci-class-heroes.png"];
+  const [index, setIndex] = useState(0);
+  const [failedAll, setFailedAll] = useState(false);
+  const src = safeCandidates[index] || safeCandidates[0];
+
+  useEffect(() => {
+    setIndex(0);
+    setFailedAll(false);
+  }, [safeCandidates.join("|")]);
+
+  if (failedAll || !src) return <div className="intro-heroes-banner banner-fallback" aria-hidden="true" />;
+
+  return (
+    <img
+      className="intro-heroes-banner"
+      src={src}
+      alt="MSCI 职业角色横幅"
+      draggable="false"
+      onError={() => {
+        setIndex((current) => {
+          const next = current + 1;
+          if (next >= safeCandidates.length) {
+            setFailedAll(true);
+            return current;
+          }
+          return next;
+        });
+      }}
+    />
+  );
+}
+
+function ModeSelector({ value, onChange }) {
+  return (
+    <section className="mode-selector" aria-label="选择服务器版本">
+      <div className="mode-selector-head">
+        <p className="eyebrow">Server Version</p>
+        <h2>选择测试版本</h2>
+      </div>
+      <div className="mode-option-grid">
+        {modeOptions.map((option) => {
+          const active = value === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              className={`mode-option ${active ? "active" : ""}`}
+              onClick={() => onChange(option.id)}
+              aria-pressed={active}
+            >
+              <span className="mode-option-main">
+                <b>{option.label}</b>
+                <small>{option.description}</small>
+              </span>
+              <span className="mode-badge">{option.badge}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ProgressDots({ questions, responses, currentIndex, onJump }) {
   const doneCount = questions.length - getMissingQuestionCount(questions, responses);
+  const percent = questions.length ? Math.round((doneCount / questions.length) * 100) : 0;
 
   return (
     <section className="progress-panel" aria-label="答题进度">
       <div className="progress-head">
         <div className="progress-bar" aria-hidden="true">
-          <span style={{ width: `${Math.round((doneCount / questions.length) * 100)}%` }} />
+          <span style={{ width: `${percent}%` }} />
         </div>
         <strong>{doneCount} / {questions.length}</strong>
       </div>
@@ -75,7 +134,7 @@ function ProgressDots({ questions, responses, currentIndex, onJump }) {
 }
 
 function QuestionCard({ question, value, onChange, index }) {
-  const options = question.options || answerScale;
+  const options = question.options || [];
 
   return (
     <article className="wizard-card">
@@ -271,11 +330,11 @@ function TestWizard({
   );
 }
 
-function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond, confidence }) {
+function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond, confidence, modeLabel }) {
   return (
     <section className="result-hero sbti-result-card">
       <div className="result-image-panel">
-        <p>你的职业人格是：</p>
+        <p>你的{modeLabel}职业人格是：</p>
         <h2>{secondResult.personaName}</h2>
         <div className="result-code green-code">{secondResult.code}</div>
         <CharacterBuilder profile={secondResult} />
@@ -298,6 +357,8 @@ function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond
 }
 
 function App() {
+  const [mode, setMode] = useState("global");
+  const modeModel = useMemo(() => getModeModel(mode), [mode]);
   const [stage, setStage] = useState("intro");
   const [firstResponses, setFirstResponses] = useState({});
   const [secondResponses, setSecondResponses] = useState({});
@@ -308,19 +369,20 @@ function App() {
   const resultCaptureRef = useRef(null);
 
   const firstScores = useMemo(
-    () => scoreQuestions(firstJobQuestions, firstResponses, firstJobDimensions),
-    [firstResponses]
+    () => scoreQuestions(modeModel.firstJobQuestions, firstResponses, modeModel.firstJobDimensions),
+    [modeModel, firstResponses]
   );
 
   const firstResults = useMemo(
-    () => matchProfiles(firstScores, firstJobProfiles),
-    [firstScores]
+    () => matchProfiles(firstScores, modeModel.firstJobProfiles),
+    [modeModel, firstScores]
   );
 
-  const selectedFirstJob = lockedFirstJob || firstResults[0]?.id || "warrior";
-  const secondQuestions = secondJobQuestions[selectedFirstJob] || [];
-  const secondDimensions = secondJobDimensions[selectedFirstJob] || {};
-  const secondProfiles = secondJobProfiles[selectedFirstJob] || {};
+  const fallbackFirstJob = Object.keys(modeModel.firstJobProfiles)[0] || "warrior";
+  const selectedFirstJob = lockedFirstJob || firstResults[0]?.id || fallbackFirstJob;
+  const secondQuestions = modeModel.secondJobQuestions[selectedFirstJob] || [];
+  const secondDimensions = modeModel.secondJobDimensions[selectedFirstJob] || {};
+  const secondProfiles = modeModel.secondJobProfiles[selectedFirstJob] || {};
 
   const secondScores = useMemo(
     () => scoreQuestions(secondQuestions, secondResponses, secondDimensions),
@@ -332,10 +394,10 @@ function App() {
     [secondScores, secondProfiles]
   );
 
-  const firstMissing = getMissingQuestionCount(firstJobQuestions, firstResponses);
+  const firstMissing = getMissingQuestionCount(modeModel.firstJobQuestions, firstResponses);
   const secondMissing = getMissingQuestionCount(secondQuestions, secondResponses);
   const isFirstComplete = firstMissing === 0;
-  const isSecondComplete = secondMissing === 0;
+  const isSecondComplete = secondQuestions.length > 0 && secondMissing === 0;
   const confidence = getConfidence(firstResults);
 
   useEffect(() => {
@@ -344,6 +406,17 @@ function App() {
       setTimeout(scrollPageToTop, 80);
     });
   }, [stage, selectedFirstJob]);
+
+  function resetForMode(nextMode) {
+    if (nextMode === mode) return;
+    setMode(nextMode);
+    setStage("intro");
+    setFirstResponses({});
+    setSecondResponses({});
+    setLockedFirstJob(null);
+    setFirstIndex(0);
+    setSecondIndex(0);
+  }
 
   function updateFirstAnswer(questionId, value) {
     setFirstResponses((prev) => ({ ...prev, [questionId]: value }));
@@ -355,14 +428,14 @@ function App() {
 
   function continueToSecond() {
     if (!isFirstComplete) return;
-    setLockedFirstJob(firstResults[0]?.id || "warrior");
+    setLockedFirstJob(firstResults[0]?.id || fallbackFirstJob);
     setSecondResponses({});
     setSecondIndex(0);
     setStage("second");
   }
 
   function showFinalResult() {
-    if (!isSecondComplete) return;
+    if (!isSecondComplete || !secondResults[0]) return;
     setStage("result");
   }
 
@@ -405,7 +478,7 @@ function App() {
           element.dataset?.html2canvasIgnore === "true",
       });
 
-      const fileName = `MSCI-${secondResults[0]?.code || "result"}.png`;
+      const fileName = `MSCI-${modeModel.id}-${secondResults[0]?.code || "result"}.png`;
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) return;
 
@@ -414,7 +487,7 @@ function App() {
       if (navigator.canShare?.({ files: [file] }) && navigator.share) {
         await navigator.share({
           title: "MSCI 冒险岛职业人格测试",
-          text: `我的 MSCI 结果是 ${profileTitle(secondResults[0])}`,
+          text: `我的 MSCI ${modeModel.label}结果是 ${profileTitle(secondResults[0])}`,
           files: [file],
         });
         return;
@@ -428,23 +501,24 @@ function App() {
   }
 
   return (
-    <main className="app-shell sbti-shell">
+    <main className={`app-shell sbti-shell msci-mode-${modeModel.id}`}>
       <header className="sbti-topbar">
         <div className="logo-mark">M</div>
         <b>MSCI Test</b>
-        <span>Class × Type</span>
-        <span>Types</span>
+        <span>{stageLabels[stage]}</span>
+        <span>{modeModel.label}</span>
         <button type="button" className="language-pill">中文</button>
       </header>
 
       {stage === "intro" && (
-        <section className="intro-card sbti-intro-card">
+        <section className="intro-card sbti-intro-card mode-aware-intro">
           <div>
+            <IntroHeroBanner candidates={modeModel.bannerCandidates} />
             <p className="eyebrow">MapleStory Class Indicator</p>
-            <h1>MSCI 冒险岛职业人格测试</h1>
-            <p>
-              一题一页，选择后自动跳下一题。系统会隐藏后台维度，只给你最后的四字母职业人格结果。
-            </p>
+            <h1>{modeModel.title}</h1>
+            <p>{modeModel.description}</p>
+            <p className="mode-note">{modeModel.note}</p>
+            <ModeSelector value={mode} onChange={resetForMode} />
           </div>
           <button className="primary-btn" onClick={() => setStage("first")}>开始测试</button>
         </section>
@@ -452,16 +526,16 @@ function App() {
 
       {stage === "first" && (
         <TestWizard
-          title="一转测试"
-          subtitle="先测你的冒险家底色"
-          questions={firstJobQuestions}
+          title={`一转测试 · ${modeModel.label}`}
+          subtitle={modeModel.firstStageSubtitle}
+          questions={modeModel.firstJobQuestions}
           responses={firstResponses}
           currentIndex={firstIndex}
           setCurrentIndex={setFirstIndex}
           onAnswer={updateFirstAnswer}
           isComplete={isFirstComplete}
           scores={firstScores}
-          dimensions={firstJobDimensions}
+          dimensions={modeModel.firstJobDimensions}
           completePreview={(
             <StageResultPreview
               title="一转人格已解锁"
@@ -476,8 +550,8 @@ function App() {
 
       {stage === "second" && (
         <TestWizard
-          title="二转测试"
-          subtitle={`已锁定：${profileTitle(firstJobProfiles[selectedFirstJob])}`}
+          title={`二转测试 · ${modeModel.label}`}
+          subtitle={`已锁定：${profileTitle(modeModel.firstJobProfiles[selectedFirstJob])}`}
           questions={secondQuestions}
           responses={secondResponses}
           currentIndex={secondIndex}
@@ -498,7 +572,7 @@ function App() {
         />
       )}
 
-      {stage === "result" && (
+      {stage === "result" && secondResults[0] && (
         <section className="result-page sbti-result-page">
           <div ref={resultCaptureRef} className="result-capture-card sbti-capture-card">
             <ResultHero
@@ -507,6 +581,7 @@ function App() {
               secondaryFirst={firstResults[1]}
               secondarySecond={secondResults[1]}
               confidence={confidence}
+              modeLabel={modeModel.label}
             />
             <section className="panel compact-ranking-panel">
               <h3>你的职业排名</h3>
@@ -517,7 +592,7 @@ function App() {
           <CollapsibleDimensions
             title="一转隐藏维度"
             scores={firstScores}
-            dimensions={firstJobDimensions}
+            dimensions={modeModel.firstJobDimensions}
           />
           <CollapsibleDimensions
             title="二转隐藏维度"
