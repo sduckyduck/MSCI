@@ -2,25 +2,27 @@ import { useEffect, useMemo, useState } from "react";
 
 const MS_REGION = "GMS";
 const MS_VERSION = "83";
+const CHARACTER_ACTION = "stand1";
+const CHARACTER_FRAME = 0;
 
-// Same MapleStory.IO render pattern used in the guidebook character preview.
-// The API renders a composed character directly from item IDs.
-function buildMapleStoryIoCharacterUrl(itemIds, action = "stand1") {
-  const parts = itemIds.map((id) =>
-    JSON.stringify({
-      ItemId: Number(id),
-      Version: MS_VERSION,
-      Region: MS_REGION,
-    })
-  );
+// MapleStory.IO supports per-item animation names in the legacy character route:
+// /api/{region}/{version}/Character/{skinId}/{items}/{animation}/{frame}
+// Face item entries can be passed as faceId:faceAnimation, e.g. 21001:smile.
+function buildMapleStoryIoCharacterUrl({ skinId, itemEntries, action = CHARACTER_ACTION, frame = CHARACTER_FRAME }) {
+  const items = itemEntries
+    .filter(Boolean)
+    .map((entry) => String(entry))
+    .join(",");
 
-  return `https://maplestory.io/api/character/${encodeURIComponent(parts.join(","))}/${action}/0?resize=3&renderMode=Full&bgColor=0,0,0,0`;
+  return `https://maplestory.io/api/${MS_REGION}/${MS_VERSION}/Character/${skinId}/${encodeURIComponent(items)}/${action}/${frame}?resize=3&renderMode=Full&bgColor=0,0,0,0`;
 }
 
-const BASE_ITEMS_BY_GENDER = {
-  male: [2000, 12000],
-  female: [2000, 12000],
-};
+const SKIN_OPTIONS = [
+  { id: 2000, label: "普通皮肤" },
+  { id: 2001, label: "白皙皮肤" },
+  { id: 2002, label: "偏暖皮肤" },
+  { id: 2003, label: "健康皮肤" },
+];
 
 const HAIR_OPTIONS = {
   male: [
@@ -52,6 +54,23 @@ const FACE_OPTIONS = {
   ],
 };
 
+// Common MapleStory face animation names used by MapleStory.IO face layers.
+// The closest official Nexon OpenAPI emotion enum is E00-E10:
+// E00 default, E01 wink, E02 smile, E03 cry, E04 angry, E05 bewildered,
+// E06 blink, E07 blaze, E08 bowing, E09 cheers, E10 chu.
+// MapleStory.IO uses readable WZ animation names rather than the E-codes.
+const EMOTE_OPTIONS = [
+  { id: "default", label: "默认", apiCode: "E00" },
+  { id: "wink", label: "眨眼", apiCode: "E01" },
+  { id: "smile", label: "微笑", apiCode: "E02" },
+  { id: "cry", label: "哭哭", apiCode: "E03" },
+  { id: "angry", label: "生气", apiCode: "E04" },
+  { id: "bewildered", label: "懵了", apiCode: "E05" },
+  { id: "blink", label: "闭眼", apiCode: "E06" },
+  { id: "cheers", label: "开心", apiCode: "E09" },
+  { id: "chu", label: "啾咪", apiCode: "E10" },
+];
+
 const GENDER_OPTIONS = [
   { id: "male", label: "男" },
   { id: "female", label: "女" },
@@ -68,20 +87,6 @@ const OUTFIT_OPTIONS = [
   { id: "toxic-lab", label: "毒药研究员", items: [1002019, 1050035, 1072072] },
 ];
 
-const WEAPON_OPTIONS = [
-  { id: "none", label: "无武器", items: [] },
-  { id: "sword", label: "单手剑", items: [1302000] },
-  { id: "shield", label: "剑盾", items: [1302000, 1092000] },
-  { id: "spear", label: "长枪", items: [1432000] },
-  { id: "polearm", label: "枪战士长柄", items: [1442000] },
-  { id: "wand", label: "短杖", items: [1372005] },
-  { id: "staff", label: "长杖", items: [1382000] },
-  { id: "bow", label: "弓", items: [1452002] },
-  { id: "crossbow", label: "弩", items: [1462001] },
-  { id: "dagger", label: "短刀", items: [1332000] },
-  { id: "claw", label: "拳套 / 飞镖", items: [1472000] },
-];
-
 const ACCESSORY_OPTIONS = [
   { id: "none", label: "无饰品", items: [] },
   { id: "cape", label: "披风", items: [1102000] },
@@ -91,16 +96,16 @@ const ACCESSORY_OPTIONS = [
 ];
 
 const ROLE_PRESETS = {
-  SLAY: { outfit: "warrior-blue", weapon: "sword", accessory: "cape" },
-  SHLD: { outfit: "paladin-white", weapon: "shield", accessory: "cape" },
-  POLE: { outfit: "warrior-blue", weapon: "polearm", accessory: "glove" },
-  ZAPZ: { outfit: "mage-purple", weapon: "staff", accessory: "cape" },
-  TOXI: { outfit: "toxic-lab", weapon: "staff", accessory: "earring" },
-  HEAL: { outfit: "cleric-mint", weapon: "wand", accessory: "cape" },
-  STAR: { outfit: "rogue-night", weapon: "claw", accessory: "glove" },
-  STAB: { outfit: "rogue-night", weapon: "dagger", accessory: "cape-glove" },
-  KITE: { outfit: "archer-green", weapon: "bow", accessory: "cape" },
-  SNIP: { outfit: "archer-green", weapon: "crossbow", accessory: "glove" },
+  SLAY: { outfit: "warrior-blue", accessory: "cape", emote: "angry" },
+  SHLD: { outfit: "paladin-white", accessory: "cape", emote: "default" },
+  POLE: { outfit: "warrior-blue", accessory: "glove", emote: "default" },
+  ZAPZ: { outfit: "mage-purple", accessory: "cape", emote: "bewildered" },
+  TOXI: { outfit: "toxic-lab", accessory: "earring", emote: "wink" },
+  HEAL: { outfit: "cleric-mint", accessory: "cape", emote: "smile" },
+  STAR: { outfit: "rogue-night", accessory: "glove", emote: "wink" },
+  STAB: { outfit: "rogue-night", accessory: "cape-glove", emote: "angry" },
+  KITE: { outfit: "archer-green", accessory: "cape", emote: "default" },
+  SNIP: { outfit: "archer-green", accessory: "glove", emote: "blink" },
 };
 
 const ROLE_RANDOM_POOLS = {
@@ -131,15 +136,6 @@ function getOption(options, id) {
   return options.find((option) => String(option.id) === String(id)) || options[0];
 }
 
-function getRoleWeaponPool(code) {
-  const group = CODE_TO_GROUP[code];
-  if (group === "warrior") return ["sword", "shield", "spear", "polearm"];
-  if (group === "magician") return ["wand", "staff"];
-  if (group === "archer") return ["bow", "crossbow"];
-  if (group === "thief") return ["dagger", "claw"];
-  return WEAPON_OPTIONS.map((option) => option.id);
-}
-
 function makeConfigForProfile(profile, randomize = true) {
   const code = profile?.code || "SLAY";
   const base = ROLE_PRESETS[code] || ROLE_PRESETS.SLAY;
@@ -148,14 +144,14 @@ function makeConfigForProfile(profile, randomize = true) {
   const hair = pick(HAIR_OPTIONS[gender]).id;
   const face = pick(FACE_OPTIONS[gender]).id;
   const outfitPool = ROLE_RANDOM_POOLS[group] || OUTFIT_OPTIONS.map((option) => option.id);
-  const weaponPool = getRoleWeaponPool(code);
 
   return {
+    skin: 2000,
     gender,
     hair,
     face,
+    emote: randomize ? pick(EMOTE_OPTIONS).id : base.emote,
     outfit: randomize ? pick(outfitPool) : base.outfit,
-    weapon: randomize ? pick(weaponPool) : base.weapon,
     accessory: randomize ? pick(ACCESSORY_OPTIONS).id : base.accessory,
   };
 }
@@ -163,38 +159,25 @@ function makeConfigForProfile(profile, randomize = true) {
 function makeFullyRandomConfig() {
   const gender = pick(GENDER_OPTIONS).id;
   return {
+    skin: pick(SKIN_OPTIONS).id,
     gender,
     hair: pick(HAIR_OPTIONS[gender]).id,
     face: pick(FACE_OPTIONS[gender]).id,
+    emote: pick(EMOTE_OPTIONS).id,
     outfit: pick(OUTFIT_OPTIONS).id,
-    weapon: pick(WEAPON_OPTIONS).id,
     accessory: pick(ACCESSORY_OPTIONS).id,
   };
 }
 
-function getActionForWeapon(weaponId) {
-  const option = getOption(WEAPON_OPTIONS, weaponId);
-  const twoHandPrefixes = new Set([138, 140, 141, 142, 143, 144, 145, 146]);
-
-  for (const id of option.items) {
-    const prefix = Math.floor(Number(id) / 10000);
-    if (twoHandPrefixes.has(prefix)) return "stand2";
-  }
-
-  return "stand1";
-}
-
-function buildItemIds(config) {
+function buildItemEntries(config) {
   const outfit = getOption(OUTFIT_OPTIONS, config.outfit);
-  const weapon = getOption(WEAPON_OPTIONS, config.weapon);
   const accessory = getOption(ACCESSORY_OPTIONS, config.accessory);
+  const faceEntry = `${Number(config.face)}:${config.emote || "default"}`;
 
   return [
-    ...(BASE_ITEMS_BY_GENDER[config.gender] || BASE_ITEMS_BY_GENDER.male),
     Number(config.hair),
-    Number(config.face),
+    faceEntry,
     ...outfit.items,
-    ...weapon.items,
     ...accessory.items,
   ].filter(Boolean);
 }
@@ -222,12 +205,15 @@ export default function CharacterBuilder({ profile }) {
     setImageFailed(false);
   }, [defaultConfig]);
 
-  const itemIds = useMemo(() => buildItemIds(config), [config]);
-  const action = useMemo(() => getActionForWeapon(config.weapon), [config.weapon]);
-  const imageUrl = useMemo(() => buildMapleStoryIoCharacterUrl(itemIds, action), [itemIds, action]);
+  const itemEntries = useMemo(() => buildItemEntries(config), [config]);
+  const imageUrl = useMemo(
+    () => buildMapleStoryIoCharacterUrl({ skinId: config.skin, itemEntries }),
+    [config.skin, itemEntries]
+  );
 
   const hairOptions = HAIR_OPTIONS[config.gender] || HAIR_OPTIONS.male;
   const faceOptions = FACE_OPTIONS[config.gender] || FACE_OPTIONS.male;
+  const selectedEmote = getOption(EMOTE_OPTIONS, config.emote);
 
   function updateConfig(key, value) {
     setImageFailed(false);
@@ -280,9 +266,14 @@ export default function CharacterBuilder({ profile }) {
         </div>
       </div>
 
-      <div className="character-builder-controls" data-html2canvas-ignore="true">
-        <div className="builder-control-head">
+      <details className="character-builder-controls" data-html2canvas-ignore="true">
+        <summary className="builder-summary">
           <b>自定义 API 角色</b>
+          <span>已折叠 · 可随机表情和外观</span>
+        </summary>
+
+        <div className="builder-control-head">
+          <b>角色外观</b>
           <div className="builder-button-row">
             <button type="button" className="ghost-btn small-btn" onClick={resetRecommended}>结果推荐</button>
             <button type="button" className="primary-btn small-btn" onClick={randomizeForResult}>本职业随机</button>
@@ -292,17 +283,18 @@ export default function CharacterBuilder({ profile }) {
 
         <div className="builder-grid">
           <SelectField label="性别" value={config.gender} options={GENDER_OPTIONS} onChange={(value) => updateConfig("gender", value)} />
+          <SelectField label="皮肤" value={String(config.skin)} options={SKIN_OPTIONS} onChange={(value) => updateConfig("skin", Number(value))} />
           <SelectField label="发型" value={String(config.hair)} options={hairOptions} onChange={(value) => updateConfig("hair", Number(value))} />
           <SelectField label="脸型" value={String(config.face)} options={faceOptions} onChange={(value) => updateConfig("face", Number(value))} />
+          <SelectField label="表情" value={config.emote} options={EMOTE_OPTIONS} onChange={(value) => updateConfig("emote", value)} />
           <SelectField label="NX / 装备" value={config.outfit} options={OUTFIT_OPTIONS} onChange={(value) => updateConfig("outfit", value)} />
-          <SelectField label="武器" value={config.weapon} options={WEAPON_OPTIONS} onChange={(value) => updateConfig("weapon", value)} />
           <SelectField label="饰品" value={config.accessory} options={ACCESSORY_OPTIONS} onChange={(value) => updateConfig("accessory", value)} />
         </div>
 
         <p className="builder-note">
-          使用 MapleStory.IO GMS v83 API 实时生成；当前动作：{action}｜Item IDs：{itemIds.join(", ")}
+          使用 MapleStory.IO GMS v83 API 实时生成；不渲染武器；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {selectedEmote.id}；Item Entries：{itemEntries.join(", ")}
         </p>
-      </div>
+      </details>
     </div>
   );
 }
