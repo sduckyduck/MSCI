@@ -1,5 +1,53 @@
 const INTRO_HEROES_BANNER_SRC = `${import.meta.env.BASE_URL}assets/msci-class-heroes.svg`;
 
+function installIntroLayoutStyles() {
+  if (document.getElementById("msci-intro-layout-cleanup-styles")) return;
+
+  const style = document.createElement("style");
+  style.id = "msci-intro-layout-cleanup-styles";
+  style.textContent = `
+    .sbti-topbar {
+      grid-template-columns: auto 1fr !important;
+    }
+
+    .sbti-topbar .logo-mark + b {
+      justify-self: start;
+    }
+
+    .intro-heroes-banner {
+      display: block;
+      width: min(100%, 760px);
+      max-height: 260px;
+      object-fit: contain;
+      object-position: center bottom;
+      margin: 0 auto 26px;
+      filter: drop-shadow(0 18px 22px rgba(31, 24, 16, 0.16));
+    }
+
+    .sbti-intro-card > div {
+      min-width: 0;
+    }
+
+    @media (min-width: 761px) {
+      .sbti-intro-card {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .intro-heroes-banner {
+        margin-left: 0;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .intro-heroes-banner {
+        max-height: 210px;
+        margin-bottom: 20px;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function removeTopbarExtras(root = document) {
   const topbar = root.querySelector?.(".sbti-topbar");
   if (!topbar) return;
@@ -25,6 +73,7 @@ function addIntroHeroesBanner(root = document) {
 }
 
 function applyIntroLayoutCleanup(root = document) {
+  installIntroLayoutStyles();
   removeTopbarExtras(root);
   addIntroHeroesBanner(root);
 }
