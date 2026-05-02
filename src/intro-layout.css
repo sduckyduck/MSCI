@@ -6,6 +6,11 @@
   justify-self: start;
 }
 
+.sbti-topbar > span,
+.sbti-topbar > .language-pill {
+  display: none !important;
+}
+
 .intro-heroes-banner {
   display: block;
   width: min(100%, 760px);
