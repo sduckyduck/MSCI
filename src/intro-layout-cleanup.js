@@ -78,17 +78,35 @@ function applyIntroLayoutCleanup(root = document) {
   addIntroHeroesBanner(root);
 }
 
+let cleanupScheduled = false;
+
+function scheduleIntroLayoutCleanup(root = document) {
+  if (cleanupScheduled) return;
+  cleanupScheduled = true;
+
+  requestAnimationFrame(() => {
+    cleanupScheduled = false;
+    applyIntroLayoutCleanup(root);
+  });
+}
+
+function nodeMayContainIntroLayout(node) {
+  if (!node || node.nodeType !== 1) return false;
+  return Boolean(
+    node.matches?.(".sbti-topbar, .sbti-intro-card") ||
+    node.querySelector?.(".sbti-topbar, .sbti-intro-card")
+  );
+}
+
 if (typeof window !== "undefined" && typeof document !== "undefined") {
-  applyIntroLayoutCleanup();
+  scheduleIntroLayoutCleanup();
 
   const observer = new MutationObserver((mutations) => {
-    applyIntroLayoutCleanup();
+    const shouldRun = mutations.some((mutation) =>
+      Array.from(mutation.addedNodes || []).some(nodeMayContainIntroLayout)
+    );
 
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes || []) {
-        if (node?.nodeType === 1) applyIntroLayoutCleanup(node);
-      }
-    }
+    if (shouldRun) scheduleIntroLayoutCleanup();
   });
 
   observer.observe(document.documentElement, {
