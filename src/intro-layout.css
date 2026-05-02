@@ -11,6 +11,23 @@
   display: none !important;
 }
 
+.sbti-intro-card > div {
+  min-width: 0;
+}
+
+.sbti-intro-card > div::before {
+  content: "";
+  display: block;
+  width: min(100%, 760px);
+  height: clamp(145px, 24vw, 260px);
+  margin: 0 auto 26px;
+  background-image: url("/assets/msci-class-heroes.png");
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+  filter: drop-shadow(0 18px 22px rgba(31, 24, 16, 0.16));
+}
+
 .intro-heroes-banner {
   display: block;
   width: min(100%, 760px);
@@ -21,16 +38,13 @@
   filter: drop-shadow(0 18px 22px rgba(31, 24, 16, 0.16));
 }
 
-.sbti-intro-card > div {
-  min-width: 0;
-}
-
 @media (min-width: 761px) {
   .sbti-intro-card {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .intro-heroes-banner {
+  .intro-heroes-banner,
+  .sbti-intro-card > div::before {
     margin-left: 0;
   }
 }
@@ -38,6 +52,11 @@
 @media (max-width: 760px) {
   .intro-heroes-banner {
     max-height: 210px;
+    margin-bottom: 20px;
+  }
+
+  .sbti-intro-card > div::before {
+    height: 210px;
     margin-bottom: 20px;
   }
 }
