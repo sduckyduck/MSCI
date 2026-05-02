@@ -7,6 +7,7 @@ import "./character-builder.css";
 import "./premium-light.css";
 import "./export-stable-preview.css";
 import "./stable-character-preview-manager.js";
+import "./gender-only-character-controls.js";
 import "./intro-layout-cleanup.js";
 import "./simplify-random-button.js";
 import "./safe-result-export.js";
