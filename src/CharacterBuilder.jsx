@@ -16,21 +16,105 @@ const CLASS_LABELS = {
   thief: "Thief",
 };
 
+const ROLE_EQUIPMENT_RULES = {
+  SLAY: {
+    classGroup: "warrior",
+    displayName: "剑客",
+    weaponKinds: ["2h-sword"],
+    allowShield: false,
+    slotPriority: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Weapon"],
+  },
+  SHLD: {
+    classGroup: "warrior",
+    displayName: "准骑士",
+    weaponKinds: ["1h-sword", "1h-axe", "1h-blunt"],
+    allowShield: true,
+    slotPriority: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Weapon", "Shield"],
+  },
+  POLE: {
+    classGroup: "warrior",
+    displayName: "枪战士",
+    weaponKinds: ["spear", "pole-arm"],
+    allowShield: false,
+    slotPriority: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Weapon"],
+  },
+  ZAPZ: {
+    classGroup: "magician",
+    displayName: "冰雷法师",
+    weaponKinds: ["wand", "staff"],
+    allowShield: false,
+    slotPriority: ["Hat", "Overall", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+  },
+  TOXI: {
+    classGroup: "magician",
+    displayName: "火毒法师",
+    weaponKinds: ["wand", "staff"],
+    allowShield: false,
+    slotPriority: ["Hat", "Overall", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+  },
+  HEAL: {
+    classGroup: "magician",
+    displayName: "牧师",
+    weaponKinds: ["wand", "staff"],
+    allowShield: false,
+    slotPriority: ["Hat", "Overall", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+  },
+  STAR: {
+    classGroup: "thief",
+    displayName: "刺客",
+    weaponKinds: ["claw"],
+    allowShield: false,
+    slotPriority: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+  },
+  STAB: {
+    classGroup: "thief",
+    displayName: "侠盗",
+    weaponKinds: ["dagger"],
+    allowShield: true,
+    slotPriority: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon", "Shield"],
+  },
+  KITE: {
+    classGroup: "archer",
+    displayName: "猎人",
+    weaponKinds: ["bow"],
+    allowShield: false,
+    slotPriority: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+  },
+  SNIP: {
+    classGroup: "archer",
+    displayName: "弩弓手",
+    weaponKinds: ["crossbow"],
+    allowShield: false,
+    slotPriority: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+  },
+};
+
 const FALLBACK_EQUIPMENT = [
-  { id: 1040002, guidebookId: 1040002, name: "White Undershirt", className: "All", slot: "Top", reqLevel: 0, source: "fallback", msioMapped: false },
-  { id: 1060002, guidebookId: 1060002, name: "Brown Cotton Shorts", className: "All", slot: "Bottom", reqLevel: 0, source: "fallback", msioMapped: false },
-  { id: 1072001, guidebookId: 1072001, name: "Beginner Shoes", className: "All", slot: "Shoes", reqLevel: 0, source: "fallback", msioMapped: false },
-  { id: 1002001, guidebookId: 1002001, name: "Green Skullcap", className: "Warrior", slot: "Hat", reqLevel: 5, source: "fallback", msioMapped: false },
-  { id: 1060016, guidebookId: 1060016, name: "Steel Sergeant Kilt", className: "Warrior", slot: "Bottom", reqLevel: 20, source: "fallback", msioMapped: false },
-  { id: 1002019, guidebookId: 1002019, name: "Brown Apprentice Hat", className: "Magician", slot: "Hat", reqLevel: 8, source: "fallback", msioMapped: false },
-  { id: 1050003, guidebookId: 1050003, name: "Magician Robe", className: "Magician", slot: "Overall", reqLevel: 18, source: "fallback", msioMapped: false },
-  { id: 1002165, guidebookId: 1002165, name: "Archer Hat", className: "Archer", slot: "Hat", reqLevel: 20, source: "fallback", msioMapped: false },
-  { id: 1060056, guidebookId: 1060056, name: "Archer Pants", className: "Archer", slot: "Bottom", reqLevel: 30, source: "fallback", msioMapped: false },
-  { id: 1002170, guidebookId: 1002170, name: "Thief Hat", className: "Thief", slot: "Hat", reqLevel: 20, source: "fallback", msioMapped: false },
-  { id: 1060043, guidebookId: 1060043, name: "Green Legolier Pants", className: "Thief", slot: "Bottom", reqLevel: 30, source: "fallback", msioMapped: false },
-  { id: 1102000, guidebookId: 1102000, name: "Old Raggedy Cape", className: "All", slot: "Cape", reqLevel: 25, source: "fallback", msioMapped: false },
-  { id: 1032000, guidebookId: 1032000, name: "Weighted Earrings", className: "All", slot: "Earring", reqLevel: 15, source: "fallback", msioMapped: false },
-  { id: 1082002, guidebookId: 1082002, name: "Steel Fingerless Gloves", className: "All", slot: "Glove", reqLevel: 10, source: "fallback", msioMapped: false },
+  { id: 1040002, guidebookId: 1040002, name: "White Undershirt", className: "All", slot: "Top", reqLevel: 0, source: "fallback", msioMapped: true },
+  { id: 1060002, guidebookId: 1060002, name: "Brown Cotton Shorts", className: "All", slot: "Bottom", reqLevel: 0, source: "fallback", msioMapped: true },
+  { id: 1072001, guidebookId: 1072001, name: "Beginner Shoes", className: "All", slot: "Shoes", reqLevel: 0, source: "fallback", msioMapped: true },
+  { id: 1002001, guidebookId: 1002001, name: "Green Skullcap", className: "Warrior", slot: "Hat", reqLevel: 5, source: "fallback", msioMapped: true },
+  { id: 1060016, guidebookId: 1060016, name: "Steel Sergeant Kilt", className: "Warrior", slot: "Bottom", reqLevel: 20, source: "fallback", msioMapped: true },
+  { id: 1402000, guidebookId: 1402000, name: "Two-Handed Sword", className: "Warrior", slot: "Weapon", reqLevel: 10, weaponType: "2H Sword", source: "fallback", msioMapped: true },
+  { id: 1302000, guidebookId: 1302000, name: "Sword", className: "Warrior", slot: "Weapon", reqLevel: 0, weaponType: "1H Sword", source: "fallback", msioMapped: true },
+  { id: 1092000, guidebookId: 1092000, name: "Stolen Fence", className: "Warrior/Thief", slot: "Shield", reqLevel: 5, source: "fallback", msioMapped: true },
+  { id: 1432000, guidebookId: 1432000, name: "Spear", className: "Warrior", slot: "Weapon", reqLevel: 10, weaponType: "Spear", source: "fallback", msioMapped: true },
+  { id: 1442000, guidebookId: 1442000, name: "Pole Arm", className: "Warrior", slot: "Weapon", reqLevel: 10, weaponType: "Pole Arm", source: "fallback", msioMapped: true },
+  { id: 1002019, guidebookId: 1002019, name: "Brown Apprentice Hat", className: "Magician", slot: "Hat", reqLevel: 8, source: "fallback", msioMapped: true },
+  { id: 1050003, guidebookId: 1050003, name: "Magician Robe", className: "Magician", slot: "Overall", reqLevel: 18, source: "fallback", msioMapped: true },
+  { id: 1372000, guidebookId: 1372000, name: "Wooden Wand", className: "Magician", slot: "Weapon", reqLevel: 8, weaponType: "Wand", source: "fallback", msioMapped: true },
+  { id: 1382000, guidebookId: 1382000, name: "Wooden Staff", className: "Magician", slot: "Weapon", reqLevel: 10, weaponType: "Staff", source: "fallback", msioMapped: true },
+  { id: 1002165, guidebookId: 1002165, name: "Archer Hat", className: "Archer", slot: "Hat", reqLevel: 20, source: "fallback", msioMapped: true },
+  { id: 1060056, guidebookId: 1060056, name: "Archer Pants", className: "Archer", slot: "Bottom", reqLevel: 30, source: "fallback", msioMapped: true },
+  { id: 1452000, guidebookId: 1452000, name: "Bow", className: "Archer", slot: "Weapon", reqLevel: 10, weaponType: "Bow", source: "fallback", msioMapped: true },
+  { id: 1462000, guidebookId: 1462000, name: "Crossbow", className: "Archer", slot: "Weapon", reqLevel: 12, weaponType: "Crossbow", source: "fallback", msioMapped: true },
+  { id: 1002170, guidebookId: 1002170, name: "Thief Hat", className: "Thief", slot: "Hat", reqLevel: 20, source: "fallback", msioMapped: true },
+  { id: 1060043, guidebookId: 1060043, name: "Green Legolier Pants", className: "Thief", slot: "Bottom", reqLevel: 30, source: "fallback", msioMapped: true },
+  { id: 1472000, guidebookId: 1472000, name: "Garnier", className: "Thief", slot: "Weapon", reqLevel: 10, weaponType: "Claw", source: "fallback", msioMapped: true },
+  { id: 1332000, guidebookId: 1332000, name: "Fruit Knife", className: "Thief", slot: "Weapon", reqLevel: 8, weaponType: "Dagger", source: "fallback", msioMapped: true },
+  { id: 1102000, guidebookId: 1102000, name: "Old Raggedy Cape", className: "All", slot: "Cape", reqLevel: 25, source: "fallback", msioMapped: true },
+  { id: 1032000, guidebookId: 1032000, name: "Weighted Earrings", className: "All", slot: "Earring", reqLevel: 15, source: "fallback", msioMapped: true },
+  { id: 1082002, guidebookId: 1082002, name: "Steel Fingerless Gloves", className: "All", slot: "Glove", reqLevel: 10, source: "fallback", msioMapped: true },
 ];
 
 function normalizeMsioEmote(emote) {
@@ -48,6 +132,11 @@ function normalizeMsioEmote(emote) {
   if (key === "e10") return "chu";
 
   return key;
+}
+
+function normalizeLegacyFaceEmote(emote) {
+  const normalized = normalizeMsioEmote(emote);
+  return normalized === "0" ? "default" : normalized;
 }
 
 function normalizeMsioAction(action) {
@@ -71,18 +160,18 @@ function toNumber(value, fallback = null) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function buildMapleStoryIoCharacterUrl({ itemIds, action = CHARACTER_ACTION, emote = "default" }) {
-  const parts = itemIds
-    .filter((id) => Number.isFinite(Number(id)) && Number(id) > 0)
-    .map((id) =>
-      JSON.stringify({
-        ItemId: Number(id),
-        Version: MS_VERSION,
-        Region: MS_REGION,
-      })
-    );
+// Legacy GMS/v83 route supports face-layer animations through `faceId:faceAnimation`.
+// The previous modern route changed the emote path segment, but in MSCI that did not
+// visually change the face reliably. This route puts the emote directly on the face item.
+function buildMapleStoryIoCharacterUrl({ config, equipment, action = CHARACTER_ACTION }) {
+  const faceEmote = normalizeLegacyFaceEmote(config?.emote);
+  const itemEntries = [
+    Number(config?.hair),
+    `${Number(config?.face)}:${faceEmote}`,
+    ...getEquipmentIds(equipment),
+  ].filter(Boolean);
 
-  return `https://maplestory.io/api/character/${encodeURIComponent(parts.join(","))}/${normalizeMsioAction(action)}/${encodeURIComponent(normalizeMsioEmote(emote))}?resize=3&renderMode=Full&bgColor=0,0,0,0`;
+  return `https://maplestory.io/api/${MS_REGION}/${MS_VERSION}/Character/${Number(config?.skin)}/${encodeURIComponent(itemEntries.join(","))}/${normalizeMsioAction(action)}/0?resize=3&renderMode=Full&bgColor=0,0,0,0&faceEmote=${encodeURIComponent(faceEmote)}`;
 }
 
 function parseCsv(text) {
@@ -191,7 +280,7 @@ function itemSupportsClass(item, classGroup) {
 
 function isRenderableVisualEquipment(equipment) {
   if (!equipment?.id) return false;
-  if (!equipment.msioMapped) return false;
+  if (!equipment.msioMapped && equipment.source !== "fallback") return false;
   if (["Unknown"].includes(equipment.slot)) return false;
   return true;
 }
@@ -355,25 +444,9 @@ const ROLE_PRESETS = {
   SNIP: { emote: "blink" },
 };
 
-const CODE_TO_GROUP = {
-  SLAY: "warrior",
-  SHLD: "warrior",
-  POLE: "warrior",
-  ZAPZ: "magician",
-  TOXI: "magician",
-  HEAL: "magician",
-  STAR: "thief",
-  STAB: "thief",
-  KITE: "archer",
-  SNIP: "archer",
-};
-
-const ROLE_SLOT_PRIORITY = {
-  warrior: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Shield", "Weapon"],
-  magician: ["Hat", "Overall", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
-  archer: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
-  thief: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
-};
+const CODE_TO_GROUP = Object.fromEntries(
+  Object.entries(ROLE_EQUIPMENT_RULES).map(([code, rule]) => [code, rule.classGroup])
+);
 
 function pick(options) {
   if (!options?.length) return null;
@@ -384,33 +457,65 @@ function getOption(options, id) {
   return options.find((option) => String(option.id) === String(id)) || options[0];
 }
 
-function getClassGroupForProfile(profile) {
-  return CODE_TO_GROUP[profile?.code] || "warrior";
+function getRoleRule(profile) {
+  return ROLE_EQUIPMENT_RULES[profile?.code] || ROLE_EQUIPMENT_RULES.SLAY;
 }
 
-function pickFromSlot(items, slot, maxLevel = 60) {
-  const candidates = items
+function getClassGroupForProfile(profile) {
+  return getRoleRule(profile).classGroup || CODE_TO_GROUP[profile?.code] || "warrior";
+}
+
+function getWeaponSearchText(item) {
+  return `${item?.weaponType || ""} ${item?.name || ""}`.toLowerCase();
+}
+
+function weaponMatchesKind(item, kind) {
+  const text = getWeaponSearchText(item);
+
+  if (kind === "2h-sword") return (text.includes("2h sword") || text.includes("two-handed sword") || text.includes("two handed sword")) && !text.includes("1h");
+  if (kind === "1h-sword") return (text.includes("1h sword") || text.includes("one-handed sword") || text.includes("one handed sword")) && !text.includes("2h");
+  if (kind === "1h-axe") return (text.includes("1h axe") || text.includes("one-handed axe") || text.includes("one handed axe")) && !text.includes("2h");
+  if (kind === "1h-blunt") return (text.includes("1h blunt") || text.includes("one-handed blunt") || text.includes("one handed blunt") || text.includes("1h bw")) && !text.includes("2h");
+  if (kind === "spear") return text.includes("spear");
+  if (kind === "pole-arm") return text.includes("pole arm") || text.includes("polearm");
+  if (kind === "wand") return text.includes("wand");
+  if (kind === "staff") return text.includes("staff");
+  if (kind === "claw") return text.includes("claw");
+  if (kind === "dagger") return text.includes("dagger");
+  if (kind === "bow") return text.includes("bow") && !text.includes("crossbow") && !text.includes("cross bow");
+  if (kind === "crossbow") return text.includes("crossbow") || text.includes("cross bow");
+
+  return false;
+}
+
+function itemAllowedForRole(item, profile) {
+  const rule = getRoleRule(profile);
+
+  if (item.slot === "Shield") return Boolean(rule.allowShield);
+  if (item.slot !== "Weapon") return true;
+
+  return (rule.weaponKinds || []).some((kind) => weaponMatchesKind(item, kind));
+}
+
+function pickFromSlot(items, slot, profile, maxLevel = 60) {
+  const base = items
     .filter(isRenderableVisualEquipment)
     .filter((item) => item.slot === slot)
-    .filter((item) => toNumber(item.reqLevel, 0) <= maxLevel);
+    .filter((item) => itemAllowedForRole(item, profile));
 
-  if (candidates.length) return pick(candidates);
-
-  return pick(
-    items
-      .filter(isRenderableVisualEquipment)
-      .filter((item) => item.slot === slot)
-  );
+  const candidates = base.filter((item) => toNumber(item.reqLevel, 0) <= maxLevel);
+  return pick(candidates.length ? candidates : base);
 }
 
 function makeEquipmentLoadout(profile, pool, maxLevel = 60) {
+  const roleRule = getRoleRule(profile);
   const classGroup = getClassGroupForProfile(profile);
   const classItems = pool.classPools?.[classGroup] || [];
-  const slotPriority = ROLE_SLOT_PRIORITY[classGroup] || ROLE_SLOT_PRIORITY.warrior;
+  const slotPriority = roleRule.slotPriority || ROLE_EQUIPMENT_RULES.SLAY.slotPriority;
   const selected = [];
   const selectedSlots = new Set();
 
-  const overall = pickFromSlot(classItems, "Overall", maxLevel);
+  const overall = pickFromSlot(classItems, "Overall", profile, maxLevel);
   const useOverall = Boolean(overall) && Math.random() < 0.5;
 
   if (useOverall) {
@@ -424,7 +529,7 @@ function makeEquipmentLoadout(profile, pool, maxLevel = 60) {
     if (selectedSlots.has(slot)) continue;
     if (slot === "Overall" && !useOverall) continue;
 
-    const item = pickFromSlot(classItems, slot, maxLevel);
+    const item = pickFromSlot(classItems, slot, profile, maxLevel);
     if (!item) continue;
 
     selected.push(item);
@@ -530,7 +635,7 @@ function getEquipmentIds(equipment) {
 
 function getEquipmentSummary(equipment) {
   return (equipment || [])
-    .map((item) => `${item.name} / ${item.className} / ${item.slot} / OSMS ${item.guidebookId} → MSIO ${item.id}`)
+    .map((item) => `${item.name} / ${item.className} / ${item.slot}${item.weaponType ? ` / ${item.weaponType}` : ""} / OSMS ${item.guidebookId} → MSIO ${item.id}`)
     .join("; ");
 }
 
@@ -575,14 +680,15 @@ export default function CharacterBuilder({ profile }) {
     [config, equipment]
   );
   const imageUrl = useMemo(
-    () => buildMapleStoryIoCharacterUrl({ itemIds: characterItemIds, emote: config.emote }),
-    [characterItemIds, config.emote]
+    () => buildMapleStoryIoCharacterUrl({ config, equipment }),
+    [config, equipment]
   );
 
   useEffect(() => {
     setImageFailed(false);
   }, [imageUrl]);
 
+  const roleRule = getRoleRule(profile);
   const classGroup = getClassGroupForProfile(profile);
   const hairOptions = HAIR_OPTIONS[config.gender] || HAIR_OPTIONS.male;
   const faceOptions = FACE_OPTIONS[config.gender] || FACE_OPTIONS.male;
@@ -647,7 +753,7 @@ export default function CharacterBuilder({ profile }) {
       <details className="character-builder-controls" data-html2canvas-ignore="true">
         <summary className="builder-summary">
           <b>自定义 API 角色</b>
-          <span>已折叠 · 装备从全职业池随机</span>
+          <span>已折叠 · 装备按二转职业规则随机</span>
         </summary>
 
         <div className="builder-control-head">
@@ -668,7 +774,7 @@ export default function CharacterBuilder({ profile }) {
         </div>
 
         <p className="builder-note">
-          使用 MapleStory.IO GMS v83 API 实时生成；装备池从 guidebook `items.json` 全量读取 Equipment，并用 `character_item_id_map.csv` 把 OSMS ID/名称转成 MSIO 渲染 ID；当前职业池：{CLASS_LABELS[classGroup]}；当前数据源：{equipmentPoolState.source}{equipmentPoolState.loading ? "（加载中）" : ""}{equipmentPoolState.error ? `（回退原因：${equipmentPoolState.error}）` : ""}；各职业可渲染/总装备：{poolSummary}；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {normalizeMsioEmote(selectedEmote.id)}；Item IDs：{characterItemIds.join(", ")}；当前装备：{equipmentSummary}
+          使用 MapleStory.IO GMS v83 API 实时生成；装备池从 guidebook `items.json` 全量读取 Equipment，并用 `character_item_id_map.csv` 把 OSMS ID/名称转成 MSIO 渲染 ID；二转规则：{roleRule.displayName}｜武器限制 {roleRule.weaponKinds.join(" / ")}{roleRule.allowShield ? "｜允许盾牌" : "｜不带盾牌"}；表情通过 legacy face entry `{Number(config.face)}:{normalizeLegacyFaceEmote(config.emote)}` 渲染；当前职业池：{CLASS_LABELS[classGroup]}；当前数据源：{equipmentPoolState.source}{equipmentPoolState.loading ? "（加载中）" : ""}{equipmentPoolState.error ? `（回退原因：${equipmentPoolState.error}）` : ""}；各职业可渲染/总装备：{poolSummary}；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {normalizeLegacyFaceEmote(selectedEmote.id)}；Item IDs：{characterItemIds.join(", ")}；当前装备：{equipmentSummary}
         </p>
       </details>
     </div>
