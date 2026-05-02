@@ -1,0 +1,249 @@
+/* Compact typography overrides loaded after styles.css.
+   Goal: keep the MapleStory template, but make mobile text less oversized. */
+
+.sbti-topbar b,
+.sbti-topbar span,
+.language-pill {
+  font-size: 18px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.sbti-intro-card h1 {
+  font-size: clamp(30px, 7vw, 58px);
+  line-height: 1.08;
+}
+
+.sbti-intro-card p,
+.wizard-shell p,
+.panel p,
+.result-hero p {
+  font-size: 16px;
+}
+
+.primary-btn,
+.ghost-btn {
+  font-size: 18px;
+}
+
+.wizard-title-row h1 {
+  font-size: clamp(24px, 4.6vw, 40px);
+}
+
+.completion-badge {
+  font-size: 17px;
+}
+
+.progress-head strong {
+  font-size: 18px;
+}
+
+.wizard-card h2 {
+  font-size: clamp(18px, 3.4vw, 24px);
+  line-height: 1.42;
+  letter-spacing: -0.01em;
+}
+
+.wizard-option span:last-child {
+  font-size: 16px;
+  line-height: 1.32;
+}
+
+.wizard-option b {
+  font-size: 17px;
+}
+
+.question-index,
+.wizard-meta {
+  font-size: 15px;
+}
+
+.wizard-help {
+  font-size: 12px;
+}
+
+.stage-result-card h2 {
+  font-size: clamp(28px, 5vw, 44px);
+}
+
+.ranking-row b {
+  font-size: 16px;
+}
+
+.ranking-row small {
+  font-size: 12px;
+}
+
+.rank-score {
+  font-size: 18px;
+}
+
+.result-image-panel p:first-child {
+  font-size: 18px;
+}
+
+.result-image-panel h2 {
+  font-size: clamp(30px, 7vw, 52px);
+}
+
+.green-code,
+.result-code {
+  font-size: clamp(36px, 8vw, 66px);
+}
+
+.result-info-panel h3 {
+  font-size: clamp(26px, 6vw, 42px);
+}
+
+.result-slogan,
+.match-pill {
+  font-size: 16px;
+}
+
+@media (max-width: 760px) {
+  .app-shell,
+  .sbti-shell {
+    width: min(100% - 18px, 940px);
+  }
+
+  .sbti-topbar b {
+    font-size: 17px;
+  }
+
+  .logo-mark {
+    width: 38px;
+    height: 38px;
+    font-size: 22px;
+  }
+
+  .sbti-intro-card {
+    min-height: 330px;
+    padding: 24px 26px;
+  }
+
+  .sbti-intro-card h1 {
+    font-size: clamp(30px, 9vw, 46px);
+  }
+
+  .sbti-intro-card p {
+    font-size: 16px;
+    line-height: 1.62;
+  }
+
+  .wizard-shell {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .wizard-title-row h1 {
+    font-size: clamp(22px, 6.6vw, 32px);
+    line-height: 1.12;
+  }
+
+  .completion-badge {
+    font-size: 15px;
+    padding: 8px 13px;
+  }
+
+  .progress-panel {
+    padding: 12px 14px;
+  }
+
+  .progress-head strong {
+    font-size: 16px;
+  }
+
+  .question-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 5px;
+  }
+
+  .wizard-card {
+    padding: 16px 18px;
+  }
+
+  .wizard-meta {
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+
+  .question-index {
+    padding: 7px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .wizard-card h2 {
+    font-size: clamp(17px, 4.6vw, 21px);
+    line-height: 1.38;
+    margin-bottom: 14px;
+    font-weight: 900;
+  }
+
+  .wizard-options {
+    gap: 10px;
+  }
+
+  .wizard-option {
+    min-height: 52px;
+    padding: 10px 13px;
+    gap: 11px;
+    border-radius: 14px;
+    border-width: 2px;
+  }
+
+  .option-radio {
+    width: 22px;
+    height: 22px;
+    border-width: 3px;
+    border-radius: 7px;
+  }
+
+  .wizard-option span:last-child {
+    font-size: 15px;
+    line-height: 1.28;
+  }
+
+  .wizard-option b {
+    font-size: 15px;
+    min-width: 18px;
+  }
+
+  .wizard-help {
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .primary-btn,
+  .ghost-btn {
+    font-size: 16px;
+    padding: 11px 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .sbti-topbar {
+    border-radius: 16px;
+  }
+
+  .wizard-card h2 {
+    font-size: 17px;
+  }
+
+  .wizard-option span:last-child {
+    font-size: 15px;
+  }
+
+  .wizard-option {
+    min-height: 50px;
+  }
+
+  .question-dot {
+    width: 12px;
+    height: 12px;
+  }
+}
