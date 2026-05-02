@@ -76,6 +76,8 @@ const GENDER_OPTIONS = [
   { id: "female", label: "女" },
 ];
 
+// This stays internal only. The user-facing NX / 装备 selector has been removed.
+// The app still needs clothing item IDs so the MapleStory.IO character is not rendered as an empty/base body.
 const OUTFIT_OPTIONS = [
   { id: "beginner", label: "初心冒险家", items: [1040002, 1060002, 1072001] },
   { id: "warrior-blue", label: "蓝甲战士", items: [1002001, 1040021, 1060016, 1072005] },
@@ -136,11 +138,11 @@ function getOption(options, id) {
   return options.find((option) => String(option.id) === String(id)) || options[0];
 }
 
-function makeConfigForProfile(profile, randomize = true) {
+function makeConfigForProfile(profile, randomize = true, fixedGender = "female") {
   const code = profile?.code || "SLAY";
   const base = ROLE_PRESETS[code] || ROLE_PRESETS.SLAY;
   const group = CODE_TO_GROUP[code] || "warrior";
-  const gender = randomize ? pick(GENDER_OPTIONS).id : "female";
+  const gender = fixedGender;
   const hair = pick(HAIR_OPTIONS[gender]).id;
   const face = pick(FACE_OPTIONS[gender]).id;
   const outfitPool = ROLE_RANDOM_POOLS[group] || OUTFIT_OPTIONS.map((option) => option.id);
@@ -156,8 +158,8 @@ function makeConfigForProfile(profile, randomize = true) {
   };
 }
 
-function makeFullyRandomConfig() {
-  const gender = pick(GENDER_OPTIONS).id;
+function makeFullyRandomConfig(fixedGender = "female") {
+  const gender = fixedGender;
   return {
     skin: pick(SKIN_OPTIONS).id,
     gender,
@@ -196,7 +198,7 @@ function SelectField({ label, value, options, onChange }) {
 }
 
 export default function CharacterBuilder({ profile }) {
-  const defaultConfig = useMemo(() => makeConfigForProfile(profile, true), [profile?.code]);
+  const defaultConfig = useMemo(() => makeConfigForProfile(profile, true, "female"), [profile?.code]);
   const [config, setConfig] = useState(defaultConfig);
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -231,17 +233,17 @@ export default function CharacterBuilder({ profile }) {
 
   function randomizeForResult() {
     setImageFailed(false);
-    setConfig(makeConfigForProfile(profile, true));
+    setConfig(makeConfigForProfile(profile, true, config.gender));
   }
 
   function resetRecommended() {
     setImageFailed(false);
-    setConfig(makeConfigForProfile(profile, false));
+    setConfig(makeConfigForProfile(profile, false, config.gender));
   }
 
   function randomizeAll() {
     setImageFailed(false);
-    setConfig(makeFullyRandomConfig());
+    setConfig(makeFullyRandomConfig(config.gender));
   }
 
   return (
@@ -269,7 +271,7 @@ export default function CharacterBuilder({ profile }) {
       <details className="character-builder-controls" data-html2canvas-ignore="true">
         <summary className="builder-summary">
           <b>自定义 API 角色</b>
-          <span>已折叠 · 可随机表情和外观</span>
+          <span>已折叠 · 随机不会改变性别</span>
         </summary>
 
         <div className="builder-control-head">
@@ -287,12 +289,11 @@ export default function CharacterBuilder({ profile }) {
           <SelectField label="发型" value={String(config.hair)} options={hairOptions} onChange={(value) => updateConfig("hair", Number(value))} />
           <SelectField label="脸型" value={String(config.face)} options={faceOptions} onChange={(value) => updateConfig("face", Number(value))} />
           <SelectField label="表情" value={config.emote} options={EMOTE_OPTIONS} onChange={(value) => updateConfig("emote", value)} />
-          <SelectField label="NX / 装备" value={config.outfit} options={OUTFIT_OPTIONS} onChange={(value) => updateConfig("outfit", value)} />
           <SelectField label="饰品" value={config.accessory} options={ACCESSORY_OPTIONS} onChange={(value) => updateConfig("accessory", value)} />
         </div>
 
         <p className="builder-note">
-          使用 MapleStory.IO GMS v83 API 实时生成；不渲染武器；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {selectedEmote.id}；Item Entries：{itemEntries.join(", ")}
+          使用 MapleStory.IO GMS v83 API 实时生成；不显示武器和装备选项；随机不会改变当前性别；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {selectedEmote.id}；Item Entries：{itemEntries.join(", ")}
         </p>
       </details>
     </div>
