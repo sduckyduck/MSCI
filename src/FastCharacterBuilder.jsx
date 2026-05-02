@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 const MS_REGION = "GMS";
 const MS_VERSION = "83";
 const DEFAULT_ACTION = "stand1";
-const BUILD_LABEL = "CLASS ONLY v4";
-const DATA_CACHE_BUSTER = "class-only-v4-20260502";
+const BUILD_LABEL = "HAIR FACE CLASS ONLY v5";
+const DATA_CACHE_BUSTER = "hair-face-class-only-v5-20260502";
 const GUIDEBOOK_DATA_BASE = "https://raw.githubusercontent.com/sduckyduck/osms-classic-guidebook/main/public/data";
 const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json?v=${DATA_CACHE_BUSTER}`;
 const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv?v=${DATA_CACHE_BUSTER}`;
@@ -14,20 +14,132 @@ const TWO_HAND_WEAPON_PREFIXES = ["140", "141", "142", "143", "144", "146"];
 const CLASS_GROUPS = ["warrior", "magician", "archer", "thief"];
 
 const SKIN_OPTIONS = [
-  { id: 2000, label: "普通皮肤" },
-  { id: 2001, label: "白皙皮肤" },
-  { id: 2002, label: "偏暖皮肤" },
-  { id: 2003, label: "健康皮肤" },
+  { id: 2000, label: "Normal" },
+  { id: 2001, label: "Light" },
+  { id: 2002, label: "Warm" },
+  { id: 2003, label: "Tan" },
 ];
 
 const HAIR_OPTIONS = {
-  male: [30000, 30020, 30030, 30040],
-  female: [31000, 31040, 31050, 31060],
+  male: [
+    { id: 30000, label: "Toben Hair" },
+    { id: 30010, label: "Zeta" },
+    { id: 30020, label: "Unkempt Hair" },
+    { id: 30030, label: "Shaved Hair" },
+    { id: 30040, label: "Rockstar" },
+    { id: 30050, label: "Metro" },
+    { id: 30060, label: "Catalyst" },
+    { id: 30070, label: "All Back" },
+    { id: 30080, label: "Military Buzzcut" },
+    { id: 30090, label: "Mohawk" },
+    { id: 30100, label: "Fireball" },
+    { id: 30110, label: "Vincent" },
+    { id: 30120, label: "Antagonist" },
+    { id: 30130, label: "Topknot" },
+    { id: 30140, label: "Medium Cornrows" },
+    { id: 30150, label: "Trip Scratch" },
+    { id: 30160, label: "Line Scratch Hair" },
+    { id: 30170, label: "Mane" },
+    { id: 30180, label: "Bowl Cut" },
+    { id: 30190, label: "Wind" },
+    { id: 30200, label: "Shaggy Wax" },
+    { id: 30210, label: "Grooovy Do" },
+    { id: 30220, label: "Foil Perm" },
+    { id: 30230, label: "Chestnut" },
+    { id: 30240, label: "Afro" },
+    { id: 30250, label: "Caspia Hair" },
+    { id: 30260, label: "with Bald Spot" },
+    { id: 30270, label: "Mohecan Shaggy Do" },
+    { id: 30280, label: "Old Man 'Do" },
+    { id: 30290, label: "Romance" },
+    { id: 30300, label: "Acorn" },
+    { id: 30310, label: "Close-Cropped Afro" },
+    { id: 30320, label: "Cabana Boy Hair" },
+    { id: 30330, label: "Tristan Hair" },
+    { id: 30340, label: "Astro" },
+    { id: 30350, label: "Spiky Tail" },
+    { id: 30360, label: "Shaggy Dragon" },
+    { id: 30370, label: "Dragon Layered Hair" },
+    { id: 30380, label: "Tribal Buzz" },
+  ],
+  female: [
+    { id: 31000, label: "Cutie Hair" },
+    { id: 31010, label: "Veronica" },
+    { id: 31020, label: "Francesca" },
+    { id: 31030, label: "Polly" },
+    { id: 31040, label: "Edgy" },
+    { id: 31050, label: "Rockstar Hair" },
+    { id: 31060, label: "Annie" },
+    { id: 31070, label: "Stella" },
+    { id: 31080, label: "Parted Pomp" },
+    { id: 31090, label: "Bridget" },
+    { id: 31100, label: "Mary Hair" },
+    { id: 31110, label: "Monica Hair" },
+    { id: 31120, label: "Miru Hair" },
+    { id: 31130, label: "Jolie" },
+    { id: 31140, label: "Pei Pei" },
+    { id: 31150, label: "Angelica Hair" },
+    { id: 31160, label: "Lori" },
+    { id: 31170, label: "Rastafari Hair" },
+    { id: 31180, label: "Cutie Hair" },
+    { id: 31190, label: "Celeb Hair" },
+    { id: 31200, label: "Holla' Back Do" },
+    { id: 31210, label: "Perfect Stranger" },
+    { id: 31220, label: "Caspia Hair" },
+    { id: 31230, label: "Rose" },
+    { id: 31240, label: "Disheveled" },
+    { id: 31250, label: "Bowlcut" },
+    { id: 31260, label: "Daisy Do Hair" },
+    { id: 31270, label: "Pigtails" },
+    { id: 31280, label: "Ellie" },
+    { id: 31290, label: "Naomi" },
+    { id: 31300, label: "Chantelle Hair" },
+    { id: 31310, label: "Carla" },
+    { id: 31320, label: "Roxy" },
+    { id: 31330, label: "Penelope Hair" },
+    { id: 31340, label: "Rae" },
+    { id: 31350, label: "Fourtail Braids" },
+    { id: 31360, label: "Swooshy Ponytail Hair" },
+    { id: 31370, label: "Stylish Burst Hair" },
+    { id: 31380, label: "Boyish" },
+  ],
 };
 
 const FACE_OPTIONS = {
-  male: [20000, 20001, 20002, 20003],
-  female: [21000, 21001, 21002, 21003],
+  male: [
+    { id: 20000, label: "Defiant Face" },
+    { id: 20001, label: "Confident Face" },
+    { id: 20002, label: "Prudent Face" },
+    { id: 20003, label: "Dramatic Face" },
+    { id: 20004, label: "Rebel's Fire" },
+    { id: 20005, label: "Alert Face" },
+    { id: 20006, label: "Babyface Pout" },
+    { id: 20007, label: "Sad Innocence" },
+    { id: 20008, label: "Worrisome Glare" },
+    { id: 20009, label: "Smart Aleck" },
+    { id: 20010, label: "Wisdom Glance" },
+    { id: 20011, label: "Cool Guy Gaze" },
+    { id: 20012, label: "Curious Dog" },
+    { id: 20013, label: "Insomniac Daze" },
+    { id: 20014, label: "Look of Wonder" },
+  ],
+  female: [
+    { id: 21000, label: "Defiant Face" },
+    { id: 21001, label: "Prudent Face" },
+    { id: 21002, label: "Intelligent Face" },
+    { id: 21003, label: "Strong Stare" },
+    { id: 21004, label: "Angel Glow" },
+    { id: 21005, label: "Babyface Pout" },
+    { id: 21006, label: "Pucker Up Face" },
+    { id: 21007, label: "Dollface Look" },
+    { id: 21008, label: "Hopeless Gaze" },
+    { id: 21009, label: "Look of Death" },
+    { id: 21010, label: "Wisdom Glance" },
+    { id: 21011, label: "Hypnotized Look" },
+    { id: 21012, label: "Soul's Window" },
+    { id: 21013, label: "Wide-eyed Girl" },
+    { id: 21014, label: "Curious Look" },
+  ],
 };
 
 const GENDER_OPTIONS = [
@@ -252,11 +364,7 @@ async function loadEquipmentData() {
         .map((item) => makeEquipmentRecord(item, msioMap))
         .filter((item) => item && VISUAL_SLOTS.has(item.slot));
 
-      equipmentDataCache = {
-        records,
-        loadedAt: Date.now(),
-      };
-
+      equipmentDataCache = { records, loadedAt: Date.now() };
       return equipmentDataCache;
     });
   }
@@ -446,8 +554,8 @@ function makeCharacterConfig({ roleCode, gender, equipmentData, loadoutTick }) {
 
   return {
     skin: randomItem(SKIN_OPTIONS)?.id || 2000,
-    hair: randomItem(HAIR_OPTIONS[gender]) || HAIR_OPTIONS.female[0],
-    face: randomItem(FACE_OPTIONS[gender]) || FACE_OPTIONS.female[0],
+    hair: randomItem(HAIR_OPTIONS[gender])?.id || HAIR_OPTIONS.female[0].id,
+    face: randomItem(FACE_OPTIONS[gender])?.id || FACE_OPTIONS.female[0].id,
     emote: loadoutTick === 0 ? preset.emote : randomItem(EMOTES),
     equipment,
     action: actionForEquipment(roleCode, equipment),
@@ -489,6 +597,8 @@ function FastCharacterBuilder({ profile }) {
 
   const imageSrc = useMemo(() => buildMapleStoryIoCharacterUrl(config), [config]);
   const poolCount = equipmentData?.records?.filter((item) => itemAllowed(item, roleCode, gender)).length || 0;
+  const hairCount = HAIR_OPTIONS[gender]?.length || 0;
+  const faceCount = FACE_OPTIONS[gender]?.length || 0;
 
   function updateGender(nextGender) {
     setGender(nextGender);
@@ -529,7 +639,7 @@ function FastCharacterBuilder({ profile }) {
         <summary className="builder-summary">
           <b>角色预览</b>
           <span>
-            {preset.label} · {gender === "female" ? "女" : "男"} · {equipmentData ? `${poolCount} 件职业专属可随机` : "职业装备池加载中"} · {BUILD_LABEL}
+            {preset.label} · {gender === "female" ? "女" : "男"} · {hairCount} 发型 / {faceCount} 脸型 · {equipmentData ? `${poolCount} 件职业专属可随机` : "职业装备池加载中"} · {BUILD_LABEL}
           </span>
         </summary>
 
@@ -537,7 +647,7 @@ function FastCharacterBuilder({ profile }) {
           <b>显示设置</b>
           <div className="builder-button-row">
             <button type="button" className="ghost-btn small-btn" onClick={randomizePreview}>
-              随机职业专属装备
+              随机发型脸型和职业装备
             </button>
           </div>
         </div>
