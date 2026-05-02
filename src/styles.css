@@ -209,6 +209,25 @@ button {
   margin-top: 12px;
 }
 
+.waiting-card {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px dashed rgba(123, 74, 35, 0.4);
+  border-radius: 18px;
+  background: rgba(255, 250, 224, 0.72);
+}
+
+.waiting-card b {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--brown-dark);
+  font-size: 17px;
+}
+
+.waiting-card p {
+  margin: 0;
+}
+
 .question-list {
   display: grid;
   gap: 14px;
@@ -249,7 +268,7 @@ button {
 }
 
 .answer-pill {
-  min-height: 66px;
+  min-height: 58px;
   padding: 10px;
   border: 2px solid rgba(105, 58, 23, 0.16);
   border-radius: 16px;
@@ -258,25 +277,21 @@ button {
   cursor: pointer;
 }
 
-.answer-pill span,
-.answer-pill b {
-  display: block;
-}
-
 .answer-pill span {
-  font-size: 13px;
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
   color: var(--muted);
-}
-
-.answer-pill b {
-  margin-top: 6px;
-  font-size: 18px;
 }
 
 .answer-pill.active {
   border-color: #9d561e;
   background: #ffd779;
   box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.13);
+}
+
+.answer-pill.active span {
+  color: var(--brown-dark);
 }
 
 .ranking-table {
