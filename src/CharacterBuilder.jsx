@@ -4,6 +4,9 @@ const MS_REGION = "GMS";
 const MS_VERSION = "83";
 const CHARACTER_ACTION = "stand1";
 const CHARACTER_STYLE_ITEM = 12000;
+const GUIDEBOOK_DATA_BASE = "https://raw.githubusercontent.com/sduckyduck/osms-classic-guidebook/main/public/data";
+const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json`;
+const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv`;
 
 function normalizeMsioEmote(emote) {
   const key = String(emote || "default").trim().toLowerCase();
@@ -28,6 +31,21 @@ function normalizeMsioAction(action) {
   return key || CHARACTER_ACTION;
 }
 
+function normalizeName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function toNumber(value, fallback = null) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const n = Number(String(value).replace(/[,+]/g, "").trim());
+  return Number.isFinite(n) ? n : fallback;
+}
+
 // Uses the same modern MapleStory.IO character route as the guidebook preview:
 // /api/character/{json item list}/{animation}/{emote}
 // This is more reliable for expressions than the old faceId:faceAnimation item-entry route.
@@ -43,6 +61,99 @@ function buildMapleStoryIoCharacterUrl({ itemIds, action = CHARACTER_ACTION, emo
     );
 
   return `https://maplestory.io/api/character/${encodeURIComponent(parts.join(","))}/${normalizeMsioAction(action)}/${encodeURIComponent(normalizeMsioEmote(emote))}?resize=3&renderMode=Full&bgColor=0,0,0,0`;
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      field += '"';
+      i += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(field);
+      field = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") i += 1;
+      row.push(field);
+      field = "";
+
+      if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
+      row = [];
+      continue;
+    }
+
+    field += char;
+  }
+
+  row.push(field);
+  if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
+  if (!rows.length) return [];
+
+  const headers = rows[0].map((header) => String(header || "").replace(/^\uFEFF/, "").trim());
+
+  return rows.slice(1).map((cells) => {
+    const out = {};
+    headers.forEach((header, index) => {
+      out[header] = cells[index] ?? "";
+    });
+    return out;
+  });
+}
+
+function buildGuidebookItemIndex(items) {
+  const itemById = new Map();
+  const itemByName = new Map();
+
+  for (const item of items || []) {
+    if (!item || item.category !== "Equipment") continue;
+
+    const itemId = toNumber(item.id, null);
+    const itemName = String(item.name || "").trim();
+    if (itemId) itemById.set(String(itemId), item);
+    if (itemName) itemByName.set(normalizeName(itemName), item);
+  }
+
+  return { itemById, itemByName };
+}
+
+function buildMsioMap(rows) {
+  const msioBySourceId = new Map();
+  const msioBySourceName = new Map();
+
+  for (const row of rows || []) {
+    const sourceId = toNumber(row.osms_item_id ?? row.source_item_id ?? row.item_id ?? row.id, null);
+    const msioId = toNumber(row.msio_item_id ?? row.mapped_item_id ?? row.target_item_id ?? row.msio_id, null);
+    if (!msioId || msioId <= 0) continue;
+
+    if (sourceId) msioBySourceId.set(String(sourceId), msioId);
+
+    const note = String(row.note || row.match_note || "");
+    const sourceNameFromNote = note.match(/^\s*([^>-]+?)\s*->/)?.[1]?.trim();
+    if (sourceNameFromNote) msioBySourceName.set(normalizeName(sourceNameFromNote), msioId);
+
+    const sourceName = row.osms_item_name || row.source_item_name || row.item_name || row.name;
+    if (sourceName) msioBySourceName.set(normalizeName(sourceName), msioId);
+  }
+
+  return { msioBySourceId, msioBySourceName };
 }
 
 const SKIN_OPTIONS = [
@@ -105,72 +216,176 @@ const GENDER_OPTIONS = [
   { id: "female", label: "女" },
 ];
 
-// MSCI internal API pool. These entries keep the MeowDB-style equipment identity
-// together with the MapleStory.IO render ID so presets can be audited and replaced
-// without showing the equipment selector to users.
-const MSCI_API_EQUIPMENT_POOL = [
-  { id: 1040002, name: "White Undershirt", className: "Beginner", slot: "Top" },
-  { id: 1060002, name: "Brown Cotton Shorts", className: "Beginner", slot: "Bottom" },
-  { id: 1072001, name: "Beginner Shoes", className: "Beginner", slot: "Shoes" },
+const EQUIPMENT_SEEDS = {
+  1040002: { guidebookId: 1040002, fallbackName: "White Undershirt", fallbackClassName: "Beginner", fallbackSlot: "Top" },
+  1060002: { guidebookId: 1060002, fallbackName: "Brown Cotton Shorts", fallbackClassName: "Beginner", fallbackSlot: "Bottom" },
+  1072001: { guidebookId: 1072001, fallbackName: "Beginner Shoes", fallbackClassName: "Beginner", fallbackSlot: "Shoes" },
 
-  { id: 1002001, name: "Green Skullcap", className: "Warrior", slot: "Hat" },
-  { id: 1040021, name: "Warrior Top", className: "Warrior", slot: "Top" },
-  { id: 1060016, name: "Steel Sergeant Kilt", className: "Warrior", slot: "Bottom" },
-  { id: 1072005, name: "Warrior Shoes", className: "Warrior", slot: "Shoes" },
+  1002001: { guidebookId: 1002001, fallbackName: "Green Skullcap", fallbackClassName: "Warrior", fallbackSlot: "Hat" },
+  1040021: { guidebookId: 1040021, fallbackName: "Warrior Top", fallbackClassName: "Warrior", fallbackSlot: "Top" },
+  1060016: { guidebookId: 1060016, fallbackName: "Steel Sergeant Kilt", fallbackClassName: "Warrior", fallbackSlot: "Bottom" },
+  1072005: { guidebookId: 1072005, fallbackName: "Warrior Shoes", fallbackClassName: "Warrior", fallbackSlot: "Shoes" },
 
-  { id: 1002028, name: "Knight Hat", className: "Warrior", slot: "Hat" },
-  { id: 1040036, name: "Knight Armor Top", className: "Warrior", slot: "Top" },
-  { id: 1060026, name: "Knight Armor Bottom", className: "Warrior", slot: "Bottom" },
-  { id: 1072039, name: "Knight Shoes", className: "Warrior", slot: "Shoes" },
+  1002028: { guidebookId: 1002028, fallbackName: "Knight Hat", fallbackClassName: "Warrior", fallbackSlot: "Hat" },
+  1040036: { guidebookId: 1040036, fallbackName: "Knight Armor Top", fallbackClassName: "Warrior", fallbackSlot: "Top" },
+  1060026: { guidebookId: 1060026, fallbackName: "Knight Armor Bottom", fallbackClassName: "Warrior", fallbackSlot: "Bottom" },
+  1072039: { guidebookId: 1072039, fallbackName: "Knight Shoes", fallbackClassName: "Warrior", fallbackSlot: "Shoes" },
 
-  { id: 1002019, name: "Brown Apprentice Hat", className: "Magician", slot: "Hat" },
-  { id: 1050003, name: "Magician Robe", className: "Magician", slot: "Overall" },
-  { id: 1072072, name: "Magician Shoes", className: "Magician", slot: "Shoes" },
-  { id: 1002034, name: "Cleric Hat", className: "Magician", slot: "Hat" },
-  { id: 1050031, name: "Cleric Robe", className: "Magician", slot: "Overall" },
-  { id: 1050035, name: "Poison Magician Robe", className: "Magician", slot: "Overall" },
+  1002019: { guidebookId: 1002019, fallbackName: "Brown Apprentice Hat", fallbackClassName: "Magician", fallbackSlot: "Hat" },
+  1050003: { guidebookId: 1050003, fallbackName: "Magician Robe", fallbackClassName: "Magician", fallbackSlot: "Overall" },
+  1072072: { guidebookId: 1072072, fallbackName: "Magician Shoes", fallbackClassName: "Magician", fallbackSlot: "Shoes" },
+  1002034: { guidebookId: 1002034, fallbackName: "Cleric Hat", fallbackClassName: "Magician", fallbackSlot: "Hat" },
+  1050031: { guidebookId: 1050031, fallbackName: "Cleric Robe", fallbackClassName: "Magician", fallbackSlot: "Overall" },
+  1050035: { guidebookId: 1050035, fallbackName: "Poison Magician Robe", fallbackClassName: "Magician", fallbackSlot: "Overall" },
 
-  { id: 1002165, name: "Archer Hat", className: "Archer", slot: "Hat" },
-  { id: 1040067, name: "Archer Top", className: "Archer", slot: "Top" },
-  { id: 1060056, name: "Archer Pants", className: "Archer", slot: "Bottom" },
-  { id: 1072081, name: "Archer Shoes", className: "Archer", slot: "Shoes" },
+  1002165: { guidebookId: 1002165, fallbackName: "Archer Hat", fallbackClassName: "Archer", fallbackSlot: "Hat" },
+  1040067: { guidebookId: 1040067, fallbackName: "Archer Top", fallbackClassName: "Archer", fallbackSlot: "Top" },
+  1060056: { guidebookId: 1060056, fallbackName: "Archer Pants", fallbackClassName: "Archer", fallbackSlot: "Bottom" },
+  1072081: { guidebookId: 1072081, fallbackName: "Archer Shoes", fallbackClassName: "Archer", fallbackSlot: "Shoes" },
 
-  { id: 1002170, name: "Thief Hat", className: "Thief", slot: "Hat" },
-  { id: 1040057, name: "Thief Top", className: "Thief", slot: "Top" },
-  { id: 1060043, name: "Green Legolier Pants", className: "Thief", slot: "Bottom" },
-  { id: 1072032, name: "Thief Shoes", className: "Thief", slot: "Shoes" },
+  1002170: { guidebookId: 1002170, fallbackName: "Thief Hat", fallbackClassName: "Thief", fallbackSlot: "Hat" },
+  1040057: { guidebookId: 1040057, fallbackName: "Thief Top", fallbackClassName: "Thief", fallbackSlot: "Top" },
+  1060043: { guidebookId: 1060043, fallbackName: "Green Legolier Pants", fallbackClassName: "Thief", fallbackSlot: "Bottom" },
+  1072032: { guidebookId: 1072032, fallbackName: "Thief Shoes", fallbackClassName: "Thief", fallbackSlot: "Shoes" },
 
-  { id: 1102000, name: "Old Raggedy Cape", className: "Common", slot: "Cape" },
-  { id: 1032000, name: "Weighted Earrings", className: "Common", slot: "Earring" },
-  { id: 1082002, name: "Steel Fingerless Gloves", className: "Common", slot: "Glove" },
-];
+  1102000: { guidebookId: 1102000, fallbackName: "Old Raggedy Cape", fallbackClassName: "Common", fallbackSlot: "Cape" },
+  1032000: { guidebookId: 1032000, fallbackName: "Weighted Earrings", fallbackClassName: "Common", fallbackSlot: "Earring" },
+  1082002: { guidebookId: 1082002, fallbackName: "Steel Fingerless Gloves", fallbackClassName: "Common", fallbackSlot: "Glove" },
+};
 
-const EQUIPMENT_BY_ID = new Map(MSCI_API_EQUIPMENT_POOL.map((item) => [item.id, item]));
-
-function outfitItems(ids) {
-  return ids.map((id) => EQUIPMENT_BY_ID.get(id) || { id, name: `MSIO ${id}`, className: "Unknown", slot: "Unknown" });
+function seedItems(ids) {
+  return ids.map((id) => resolveEquipmentSeed(EQUIPMENT_SEEDS[id], null, null));
 }
 
-// This stays internal only. The user-facing NX / 装备 selector has been removed.
-// The app still needs clothing item IDs so the MapleStory.IO character is not rendered as an empty/base body.
-const OUTFIT_OPTIONS = [
-  { id: "beginner", label: "初心冒险家", equipment: outfitItems([1040002, 1060002, 1072001]) },
-  { id: "warrior-blue", label: "蓝甲战士", equipment: outfitItems([1002001, 1040021, 1060016, 1072005]) },
-  { id: "paladin-white", label: "白金骑士", equipment: outfitItems([1002028, 1040036, 1060026, 1072039]) },
-  { id: "mage-purple", label: "紫袍法师", equipment: outfitItems([1002019, 1050003, 1072072]) },
-  { id: "cleric-mint", label: "薄荷牧师", equipment: outfitItems([1002034, 1050031, 1072045]) },
-  { id: "archer-green", label: "绿林射手", equipment: outfitItems([1002165, 1040067, 1060056, 1072081]) },
-  { id: "rogue-night", label: "夜行飞侠", equipment: outfitItems([1002170, 1040057, 1060043, 1072032]) },
-  { id: "toxic-lab", label: "毒药研究员", equipment: outfitItems([1002019, 1050035, 1072072]) },
+const OUTFIT_SEEDS = [
+  { id: "beginner", label: "初心冒险家", guidebookIds: [1040002, 1060002, 1072001] },
+  { id: "warrior-blue", label: "蓝甲战士", guidebookIds: [1002001, 1040021, 1060016, 1072005] },
+  { id: "paladin-white", label: "白金骑士", guidebookIds: [1002028, 1040036, 1060026, 1072039] },
+  { id: "mage-purple", label: "紫袍法师", guidebookIds: [1002019, 1050003, 1072072] },
+  { id: "cleric-mint", label: "薄荷牧师", guidebookIds: [1002034, 1050031, 1072045] },
+  { id: "archer-green", label: "绿林射手", guidebookIds: [1002165, 1040067, 1060056, 1072081] },
+  { id: "rogue-night", label: "夜行飞侠", guidebookIds: [1002170, 1040057, 1060043, 1072032] },
+  { id: "toxic-lab", label: "毒药研究员", guidebookIds: [1002019, 1050035, 1072072] },
 ];
 
-const ACCESSORY_OPTIONS = [
-  { id: "none", label: "无饰品", equipment: [] },
-  { id: "cape", label: "披风", equipment: outfitItems([1102000]) },
-  { id: "earring", label: "耳环", equipment: outfitItems([1032000]) },
-  { id: "glove", label: "手套", equipment: outfitItems([1082002]) },
-  { id: "cape-glove", label: "披风 + 手套", equipment: outfitItems([1102000, 1082002]) },
+const ACCESSORY_SEEDS = [
+  { id: "none", label: "无饰品", guidebookIds: [] },
+  { id: "cape", label: "披风", guidebookIds: [1102000] },
+  { id: "earring", label: "耳环", guidebookIds: [1032000] },
+  { id: "glove", label: "手套", guidebookIds: [1082002] },
+  { id: "cape-glove", label: "披风 + 手套", guidebookIds: [1102000, 1082002] },
 ];
+
+const FALLBACK_OUTFIT_OPTIONS = OUTFIT_SEEDS.map((option) => ({
+  ...option,
+  equipment: seedItems(option.guidebookIds),
+}));
+
+const FALLBACK_ACCESSORY_OPTIONS = ACCESSORY_SEEDS.map((option) => ({
+  ...option,
+  equipment: seedItems(option.guidebookIds),
+}));
+
+function resolveEquipmentSeed(seed, itemIndex, msioMap) {
+  if (!seed) return null;
+
+  const sourceItem =
+    itemIndex?.itemById?.get(String(seed.guidebookId)) ||
+    itemIndex?.itemByName?.get(normalizeName(seed.fallbackName)) ||
+    null;
+
+  const guidebookId = toNumber(sourceItem?.id, seed.guidebookId);
+  const guidebookName = String(sourceItem?.name || seed.fallbackName || `Item ${guidebookId}`);
+  const msioId =
+    msioMap?.msioBySourceId?.get(String(guidebookId)) ||
+    msioMap?.msioBySourceName?.get(normalizeName(guidebookName)) ||
+    guidebookId;
+
+  return {
+    id: msioId,
+    guidebookId,
+    name: guidebookName,
+    className: sourceItem?.req_job_label || seed.fallbackClassName || "Unknown",
+    slot: sourceItem?.sub_category || seed.fallbackSlot || "Unknown",
+    source: sourceItem ? "guidebook-items-json" : "fallback-seed",
+    msioMapped: Boolean(msioMap?.msioBySourceId?.has(String(guidebookId)) || msioMap?.msioBySourceName?.has(normalizeName(guidebookName))),
+  };
+}
+
+function resolveEquipmentOptions(optionSeeds, itemIndex, msioMap) {
+  return optionSeeds.map((option) => ({
+    ...option,
+    equipment: option.guidebookIds
+      .map((id) => resolveEquipmentSeed(EQUIPMENT_SEEDS[id], itemIndex, msioMap))
+      .filter(Boolean),
+  }));
+}
+
+function useGuidebookEquipmentOptions() {
+  const [state, setState] = useState({
+    outfitOptions: FALLBACK_OUTFIT_OPTIONS,
+    accessoryOptions: FALLBACK_ACCESSORY_OPTIONS,
+    loading: true,
+    source: "fallback-seed",
+    resolvedCount: 0,
+    mappedCount: 0,
+    error: "",
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const [itemsResponse, mapResponse] = await Promise.all([
+          fetch(GUIDEBOOK_ITEMS_URL, { cache: "no-store" }),
+          fetch(GUIDEBOOK_MSIO_MAP_URL, { cache: "no-store" }),
+        ]);
+
+        if (!itemsResponse.ok) throw new Error(`items.json HTTP ${itemsResponse.status}`);
+        if (!mapResponse.ok) throw new Error(`character_item_id_map.csv HTTP ${mapResponse.status}`);
+
+        const itemJson = await itemsResponse.json();
+        const mapText = await mapResponse.text();
+        const itemRows = Array.isArray(itemJson) ? itemJson : itemJson.items || itemJson.data || [];
+        const itemIndex = buildGuidebookItemIndex(itemRows);
+        const msioMap = buildMsioMap(parseCsv(mapText));
+        const outfitOptions = resolveEquipmentOptions(OUTFIT_SEEDS, itemIndex, msioMap);
+        const accessoryOptions = resolveEquipmentOptions(ACCESSORY_SEEDS, itemIndex, msioMap);
+        const allEquipment = [...outfitOptions, ...accessoryOptions].flatMap((option) => option.equipment || []);
+
+        if (!cancelled) {
+          setState({
+            outfitOptions,
+            accessoryOptions,
+            loading: false,
+            source: "guidebook-items-json + character-item-id-map",
+            resolvedCount: allEquipment.filter((item) => item.source === "guidebook-items-json").length,
+            mappedCount: allEquipment.filter((item) => item.msioMapped).length,
+            error: "",
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            source: "fallback-seed",
+            error: String(error?.message || error),
+          }));
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return state;
+}
 
 const ROLE_PRESETS = {
   SLAY: { outfit: "warrior-blue", accessory: "cape", emote: "angry" },
@@ -220,7 +435,7 @@ function makeConfigForProfile(profile, randomize = true, fixedGender = "female")
   const gender = fixedGender;
   const hair = pick(HAIR_OPTIONS[gender]).id;
   const face = pick(FACE_OPTIONS[gender]).id;
-  const outfitPool = ROLE_RANDOM_POOLS[group] || OUTFIT_OPTIONS.map((option) => option.id);
+  const outfitPool = ROLE_RANDOM_POOLS[group] || OUTFIT_SEEDS.map((option) => option.id);
 
   return {
     skin: 2000,
@@ -229,11 +444,11 @@ function makeConfigForProfile(profile, randomize = true, fixedGender = "female")
     face,
     emote: randomize ? pick(EMOTE_OPTIONS).id : base.emote,
     outfit: randomize ? pick(outfitPool) : base.outfit,
-    accessory: randomize ? pick(ACCESSORY_OPTIONS).id : base.accessory,
+    accessory: randomize ? pick(ACCESSORY_SEEDS).id : base.accessory,
   };
 }
 
-function makeFullyRandomConfig(fixedGender = "female") {
+function makeFullyRandomConfig(fixedGender = "female", outfitOptions = FALLBACK_OUTFIT_OPTIONS, accessoryOptions = FALLBACK_ACCESSORY_OPTIONS) {
   const gender = fixedGender;
   return {
     skin: pick(SKIN_OPTIONS).id,
@@ -241,8 +456,8 @@ function makeFullyRandomConfig(fixedGender = "female") {
     hair: pick(HAIR_OPTIONS[gender]).id,
     face: pick(FACE_OPTIONS[gender]).id,
     emote: pick(EMOTE_OPTIONS).id,
-    outfit: pick(OUTFIT_OPTIONS).id,
-    accessory: pick(ACCESSORY_OPTIONS).id,
+    outfit: pick(outfitOptions).id,
+    accessory: pick(accessoryOptions).id,
   };
 }
 
@@ -253,18 +468,18 @@ function getEquipmentIds(option) {
     .map(Number);
 }
 
-function getEquipmentSummary(config) {
-  const outfit = getOption(OUTFIT_OPTIONS, config.outfit);
-  const accessory = getOption(ACCESSORY_OPTIONS, config.accessory);
+function getEquipmentSummary(config, outfitOptions, accessoryOptions) {
+  const outfit = getOption(outfitOptions, config.outfit);
+  const accessory = getOption(accessoryOptions, config.accessory);
 
   return [...(outfit.equipment || []), ...(accessory.equipment || [])]
-    .map((item) => `${item.name} / ${item.className} / ${item.id}`)
+    .map((item) => `${item.name} / ${item.className} / OSMS ${item.guidebookId} → MSIO ${item.id}`)
     .join("; ");
 }
 
-function buildCharacterItemIds(config) {
-  const outfit = getOption(OUTFIT_OPTIONS, config.outfit);
-  const accessory = getOption(ACCESSORY_OPTIONS, config.accessory);
+function buildCharacterItemIds(config, outfitOptions, accessoryOptions) {
+  const outfit = getOption(outfitOptions, config.outfit);
+  const accessory = getOption(accessoryOptions, config.accessory);
 
   return [
     Number(config.skin),
@@ -290,6 +505,8 @@ function SelectField({ label, value, options, onChange }) {
 }
 
 export default function CharacterBuilder({ profile }) {
+  const equipmentOptions = useGuidebookEquipmentOptions();
+  const { outfitOptions, accessoryOptions } = equipmentOptions;
   const defaultConfig = useMemo(() => makeConfigForProfile(profile, true, "female"), [profile?.code]);
   const [config, setConfig] = useState(defaultConfig);
   const [imageFailed, setImageFailed] = useState(false);
@@ -299,7 +516,10 @@ export default function CharacterBuilder({ profile }) {
     setImageFailed(false);
   }, [defaultConfig]);
 
-  const characterItemIds = useMemo(() => buildCharacterItemIds(config), [config]);
+  const characterItemIds = useMemo(
+    () => buildCharacterItemIds(config, outfitOptions, accessoryOptions),
+    [config, outfitOptions, accessoryOptions]
+  );
   const imageUrl = useMemo(
     () => buildMapleStoryIoCharacterUrl({ itemIds: characterItemIds, emote: config.emote }),
     [characterItemIds, config.emote]
@@ -312,7 +532,7 @@ export default function CharacterBuilder({ profile }) {
   const hairOptions = HAIR_OPTIONS[config.gender] || HAIR_OPTIONS.male;
   const faceOptions = FACE_OPTIONS[config.gender] || FACE_OPTIONS.male;
   const selectedEmote = getOption(EMOTE_OPTIONS, config.emote);
-  const equipmentSummary = getEquipmentSummary(config);
+  const equipmentSummary = getEquipmentSummary(config, outfitOptions, accessoryOptions);
 
   function updateConfig(key, value) {
     setImageFailed(false);
@@ -340,7 +560,7 @@ export default function CharacterBuilder({ profile }) {
 
   function randomizeAll() {
     setImageFailed(false);
-    setConfig(makeFullyRandomConfig(config.gender));
+    setConfig(makeFullyRandomConfig(config.gender, outfitOptions, accessoryOptions));
   }
 
   return (
@@ -386,11 +606,11 @@ export default function CharacterBuilder({ profile }) {
           <SelectField label="发型" value={String(config.hair)} options={hairOptions} onChange={(value) => updateConfig("hair", Number(value))} />
           <SelectField label="脸型" value={String(config.face)} options={faceOptions} onChange={(value) => updateConfig("face", Number(value))} />
           <SelectField label="表情" value={config.emote} options={EMOTE_OPTIONS} onChange={(value) => updateConfig("emote", value)} />
-          <SelectField label="饰品" value={config.accessory} options={ACCESSORY_OPTIONS} onChange={(value) => updateConfig("accessory", value)} />
+          <SelectField label="饰品" value={config.accessory} options={accessoryOptions} onChange={(value) => updateConfig("accessory", value)} />
         </div>
 
         <p className="builder-note">
-          使用 MapleStory.IO GMS v83 API 实时生成；不显示武器和装备选项；随机不会改变当前性别；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {normalizeMsioEmote(selectedEmote.id)}；Item IDs：{characterItemIds.join(", ")}；装备池：{equipmentSummary}
+          使用 MapleStory.IO GMS v83 API 实时生成；装备从 guidebook `items.json` 按 ID/名称读取，并用 `character_item_id_map.csv` 转成 MSIO 渲染 ID；当前数据源：{equipmentOptions.source}{equipmentOptions.loading ? "（加载中）" : ""}{equipmentOptions.error ? `（回退原因：${equipmentOptions.error}）` : ""}；已解析 {equipmentOptions.resolvedCount} 件，已映射 {equipmentOptions.mappedCount} 件；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {normalizeMsioEmote(selectedEmote.id)}；Item IDs：{characterItemIds.join(", ")}；装备池：{equipmentSummary}
         </p>
       </details>
     </div>
