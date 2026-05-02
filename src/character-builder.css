@@ -161,7 +161,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  padding: 0 14px;
+  padding: 0 14px 14px;
 }
 
 .builder-field {
@@ -187,13 +187,9 @@
   font-weight: 800;
 }
 
+/* Hide verbose API/debug text from the result page. */
 .builder-note {
-  margin: 0;
-  padding: 0 14px 14px;
-  color: #7b6650;
-  font-size: 12px;
-  line-height: 1.55;
-  word-break: break-word;
+  display: none !important;
 }
 
 @media (max-width: 760px) {
