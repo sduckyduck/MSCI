@@ -8,6 +8,31 @@ const GUIDEBOOK_DATA_BASE = "https://raw.githubusercontent.com/sduckyduck/osms-c
 const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json`;
 const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv`;
 
+const CLASS_GROUPS = ["warrior", "magician", "archer", "thief"];
+const CLASS_LABELS = {
+  warrior: "Warrior",
+  magician: "Magician",
+  archer: "Archer",
+  thief: "Thief",
+};
+
+const FALLBACK_EQUIPMENT = [
+  { id: 1040002, guidebookId: 1040002, name: "White Undershirt", className: "All", slot: "Top", reqLevel: 0, source: "fallback", msioMapped: false },
+  { id: 1060002, guidebookId: 1060002, name: "Brown Cotton Shorts", className: "All", slot: "Bottom", reqLevel: 0, source: "fallback", msioMapped: false },
+  { id: 1072001, guidebookId: 1072001, name: "Beginner Shoes", className: "All", slot: "Shoes", reqLevel: 0, source: "fallback", msioMapped: false },
+  { id: 1002001, guidebookId: 1002001, name: "Green Skullcap", className: "Warrior", slot: "Hat", reqLevel: 5, source: "fallback", msioMapped: false },
+  { id: 1060016, guidebookId: 1060016, name: "Steel Sergeant Kilt", className: "Warrior", slot: "Bottom", reqLevel: 20, source: "fallback", msioMapped: false },
+  { id: 1002019, guidebookId: 1002019, name: "Brown Apprentice Hat", className: "Magician", slot: "Hat", reqLevel: 8, source: "fallback", msioMapped: false },
+  { id: 1050003, guidebookId: 1050003, name: "Magician Robe", className: "Magician", slot: "Overall", reqLevel: 18, source: "fallback", msioMapped: false },
+  { id: 1002165, guidebookId: 1002165, name: "Archer Hat", className: "Archer", slot: "Hat", reqLevel: 20, source: "fallback", msioMapped: false },
+  { id: 1060056, guidebookId: 1060056, name: "Archer Pants", className: "Archer", slot: "Bottom", reqLevel: 30, source: "fallback", msioMapped: false },
+  { id: 1002170, guidebookId: 1002170, name: "Thief Hat", className: "Thief", slot: "Hat", reqLevel: 20, source: "fallback", msioMapped: false },
+  { id: 1060043, guidebookId: 1060043, name: "Green Legolier Pants", className: "Thief", slot: "Bottom", reqLevel: 30, source: "fallback", msioMapped: false },
+  { id: 1102000, guidebookId: 1102000, name: "Old Raggedy Cape", className: "All", slot: "Cape", reqLevel: 25, source: "fallback", msioMapped: false },
+  { id: 1032000, guidebookId: 1032000, name: "Weighted Earrings", className: "All", slot: "Earring", reqLevel: 15, source: "fallback", msioMapped: false },
+  { id: 1082002, guidebookId: 1082002, name: "Steel Fingerless Gloves", className: "All", slot: "Glove", reqLevel: 10, source: "fallback", msioMapped: false },
+];
+
 function normalizeMsioEmote(emote) {
   const key = String(emote || "default").trim().toLowerCase();
 
@@ -46,9 +71,6 @@ function toNumber(value, fallback = null) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-// Uses the same modern MapleStory.IO character route as the guidebook preview:
-// /api/character/{json item list}/{animation}/{emote}
-// This is more reliable for expressions than the old faceId:faceAnimation item-entry route.
 function buildMapleStoryIoCharacterUrl({ itemIds, action = CHARACTER_ACTION, emote = "default" }) {
   const parts = itemIds
     .filter((id) => Number.isFinite(Number(id)) && Number(id) > 0)
@@ -118,22 +140,6 @@ function parseCsv(text) {
   });
 }
 
-function buildGuidebookItemIndex(items) {
-  const itemById = new Map();
-  const itemByName = new Map();
-
-  for (const item of items || []) {
-    if (!item || item.category !== "Equipment") continue;
-
-    const itemId = toNumber(item.id, null);
-    const itemName = String(item.name || "").trim();
-    if (itemId) itemById.set(String(itemId), item);
-    if (itemName) itemByName.set(normalizeName(itemName), item);
-  }
-
-  return { itemById, itemByName };
-}
-
 function buildMsioMap(rows) {
   const msioBySourceId = new Map();
   const msioBySourceName = new Map();
@@ -154,6 +160,131 @@ function buildMsioMap(rows) {
   }
 
   return { msioBySourceId, msioBySourceName };
+}
+
+function normalizeSlot(slot) {
+  const value = String(slot || "").toLowerCase();
+  if (value.includes("weapon")) return "Weapon";
+  if (value.includes("cap") || value.includes("hat")) return "Hat";
+  if (value.includes("overall")) return "Overall";
+  if (value.includes("top")) return "Top";
+  if (value.includes("bottom") || value.includes("pants") || value.includes("skirt")) return "Bottom";
+  if (value.includes("shoe")) return "Shoes";
+  if (value.includes("glove")) return "Glove";
+  if (value.includes("cape")) return "Cape";
+  if (value.includes("ear")) return "Earring";
+  if (value.includes("shield")) return "Shield";
+  return slot || "Unknown";
+}
+
+function itemSupportsClass(item, classGroup) {
+  const label = String(item.req_job_label || item.className || "All").toLowerCase();
+  if (!label || label === "all" || label.includes("common")) return true;
+
+  if (classGroup === "warrior") return label.includes("warrior");
+  if (classGroup === "magician") return label.includes("magician") || label.includes("mage");
+  if (classGroup === "archer") return label.includes("archer") || label.includes("bowman");
+  if (classGroup === "thief") return label.includes("thief") || label.includes("rogue");
+
+  return false;
+}
+
+function isRenderableVisualEquipment(equipment) {
+  if (!equipment?.id) return false;
+  if (!equipment.msioMapped) return false;
+  if (["Unknown"].includes(equipment.slot)) return false;
+  return true;
+}
+
+function makeEquipmentRecord(item, msioMap) {
+  const guidebookId = toNumber(item?.id, null);
+  const name = String(item?.name || "").trim();
+  if (!guidebookId || !name || item?.category !== "Equipment") return null;
+
+  const msioId =
+    msioMap.msioBySourceId.get(String(guidebookId)) ||
+    msioMap.msioBySourceName.get(normalizeName(name)) ||
+    null;
+
+  return {
+    id: msioId || guidebookId,
+    guidebookId,
+    name,
+    className: item.req_job_label || "All",
+    slot: normalizeSlot(item.sub_category),
+    reqLevel: toNumber(item.stats?.reqLevel ?? item.reqLevel, 0),
+    weaponType: item.weapon_type || "",
+    thumbnail: item.thumbnail || "",
+    source: "guidebook-items-json",
+    msioMapped: Boolean(msioId),
+  };
+}
+
+function buildEquipmentPool(itemRows, msioMap) {
+  const allEquipment = (itemRows || [])
+    .map((item) => makeEquipmentRecord(item, msioMap))
+    .filter(Boolean);
+
+  const classPools = Object.fromEntries(
+    CLASS_GROUPS.map((classGroup) => [
+      classGroup,
+      allEquipment.filter((item) => itemSupportsClass(item, classGroup)),
+    ])
+  );
+
+  return {
+    allEquipment,
+    classPools,
+    source: "guidebook-items-json + character-item-id-map",
+  };
+}
+
+function buildFallbackPool() {
+  const classPools = Object.fromEntries(
+    CLASS_GROUPS.map((classGroup) => [
+      classGroup,
+      FALLBACK_EQUIPMENT.filter((item) => itemSupportsClass(item, classGroup)),
+    ])
+  );
+
+  return {
+    allEquipment: FALLBACK_EQUIPMENT,
+    classPools,
+    source: "fallback-seed",
+  };
+}
+
+function countBySlot(items) {
+  return (items || []).reduce((acc, item) => {
+    acc[item.slot] = (acc[item.slot] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function getPoolStats(pool) {
+  const stats = {};
+
+  for (const classGroup of CLASS_GROUPS) {
+    const classItems = pool.classPools?.[classGroup] || [];
+    const renderable = classItems.filter(isRenderableVisualEquipment);
+    stats[classGroup] = {
+      total: classItems.length,
+      renderable: renderable.length,
+      bySlot: countBySlot(classItems),
+      renderableBySlot: countBySlot(renderable),
+    };
+  }
+
+  return stats;
+}
+
+function getClassPoolSummary(stats) {
+  return CLASS_GROUPS
+    .map((classGroup) => {
+      const row = stats?.[classGroup] || { total: 0, renderable: 0 };
+      return `${CLASS_LABELS[classGroup]} ${row.renderable}/${row.total}`;
+    })
+    .join(" ｜ ");
 }
 
 const SKIN_OPTIONS = [
@@ -193,11 +324,6 @@ const FACE_OPTIONS = {
   ],
 };
 
-// Common MapleStory face animation names used by MapleStory.IO face layers.
-// The closest official Nexon OpenAPI emotion enum is E00-E10:
-// E00 default, E01 wink, E02 smile, E03 cry, E04 angry, E05 bewildered,
-// E06 blink, E07 blaze, E08 bowing, E09 cheers, E10 chu.
-// MapleStory.IO uses readable WZ animation names rather than the E-codes.
 const EMOTE_OPTIONS = [
   { id: "default", label: "默认", apiCode: "E00" },
   { id: "wink", label: "眨眼", apiCode: "E01" },
@@ -216,120 +342,133 @@ const GENDER_OPTIONS = [
   { id: "female", label: "女" },
 ];
 
-const EQUIPMENT_SEEDS = {
-  1040002: { guidebookId: 1040002, fallbackName: "White Undershirt", fallbackClassName: "Beginner", fallbackSlot: "Top" },
-  1060002: { guidebookId: 1060002, fallbackName: "Brown Cotton Shorts", fallbackClassName: "Beginner", fallbackSlot: "Bottom" },
-  1072001: { guidebookId: 1072001, fallbackName: "Beginner Shoes", fallbackClassName: "Beginner", fallbackSlot: "Shoes" },
-
-  1002001: { guidebookId: 1002001, fallbackName: "Green Skullcap", fallbackClassName: "Warrior", fallbackSlot: "Hat" },
-  1040021: { guidebookId: 1040021, fallbackName: "Warrior Top", fallbackClassName: "Warrior", fallbackSlot: "Top" },
-  1060016: { guidebookId: 1060016, fallbackName: "Steel Sergeant Kilt", fallbackClassName: "Warrior", fallbackSlot: "Bottom" },
-  1072005: { guidebookId: 1072005, fallbackName: "Warrior Shoes", fallbackClassName: "Warrior", fallbackSlot: "Shoes" },
-
-  1002028: { guidebookId: 1002028, fallbackName: "Knight Hat", fallbackClassName: "Warrior", fallbackSlot: "Hat" },
-  1040036: { guidebookId: 1040036, fallbackName: "Knight Armor Top", fallbackClassName: "Warrior", fallbackSlot: "Top" },
-  1060026: { guidebookId: 1060026, fallbackName: "Knight Armor Bottom", fallbackClassName: "Warrior", fallbackSlot: "Bottom" },
-  1072039: { guidebookId: 1072039, fallbackName: "Knight Shoes", fallbackClassName: "Warrior", fallbackSlot: "Shoes" },
-
-  1002019: { guidebookId: 1002019, fallbackName: "Brown Apprentice Hat", fallbackClassName: "Magician", fallbackSlot: "Hat" },
-  1050003: { guidebookId: 1050003, fallbackName: "Magician Robe", fallbackClassName: "Magician", fallbackSlot: "Overall" },
-  1072072: { guidebookId: 1072072, fallbackName: "Magician Shoes", fallbackClassName: "Magician", fallbackSlot: "Shoes" },
-  1002034: { guidebookId: 1002034, fallbackName: "Cleric Hat", fallbackClassName: "Magician", fallbackSlot: "Hat" },
-  1050031: { guidebookId: 1050031, fallbackName: "Cleric Robe", fallbackClassName: "Magician", fallbackSlot: "Overall" },
-  1050035: { guidebookId: 1050035, fallbackName: "Poison Magician Robe", fallbackClassName: "Magician", fallbackSlot: "Overall" },
-
-  1002165: { guidebookId: 1002165, fallbackName: "Archer Hat", fallbackClassName: "Archer", fallbackSlot: "Hat" },
-  1040067: { guidebookId: 1040067, fallbackName: "Archer Top", fallbackClassName: "Archer", fallbackSlot: "Top" },
-  1060056: { guidebookId: 1060056, fallbackName: "Archer Pants", fallbackClassName: "Archer", fallbackSlot: "Bottom" },
-  1072081: { guidebookId: 1072081, fallbackName: "Archer Shoes", fallbackClassName: "Archer", fallbackSlot: "Shoes" },
-
-  1002170: { guidebookId: 1002170, fallbackName: "Thief Hat", fallbackClassName: "Thief", fallbackSlot: "Hat" },
-  1040057: { guidebookId: 1040057, fallbackName: "Thief Top", fallbackClassName: "Thief", fallbackSlot: "Top" },
-  1060043: { guidebookId: 1060043, fallbackName: "Green Legolier Pants", fallbackClassName: "Thief", fallbackSlot: "Bottom" },
-  1072032: { guidebookId: 1072032, fallbackName: "Thief Shoes", fallbackClassName: "Thief", fallbackSlot: "Shoes" },
-
-  1102000: { guidebookId: 1102000, fallbackName: "Old Raggedy Cape", fallbackClassName: "Common", fallbackSlot: "Cape" },
-  1032000: { guidebookId: 1032000, fallbackName: "Weighted Earrings", fallbackClassName: "Common", fallbackSlot: "Earring" },
-  1082002: { guidebookId: 1082002, fallbackName: "Steel Fingerless Gloves", fallbackClassName: "Common", fallbackSlot: "Glove" },
+const ROLE_PRESETS = {
+  SLAY: { emote: "angry" },
+  SHLD: { emote: "default" },
+  POLE: { emote: "default" },
+  ZAPZ: { emote: "bewildered" },
+  TOXI: { emote: "wink" },
+  HEAL: { emote: "smile" },
+  STAR: { emote: "wink" },
+  STAB: { emote: "angry" },
+  KITE: { emote: "default" },
+  SNIP: { emote: "blink" },
 };
 
-function seedItems(ids) {
-  return ids.map((id) => resolveEquipmentSeed(EQUIPMENT_SEEDS[id], null, null));
+const CODE_TO_GROUP = {
+  SLAY: "warrior",
+  SHLD: "warrior",
+  POLE: "warrior",
+  ZAPZ: "magician",
+  TOXI: "magician",
+  HEAL: "magician",
+  STAR: "thief",
+  STAB: "thief",
+  KITE: "archer",
+  SNIP: "archer",
+};
+
+const ROLE_SLOT_PRIORITY = {
+  warrior: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Shield", "Weapon"],
+  magician: ["Hat", "Overall", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+  archer: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+  thief: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"],
+};
+
+function pick(options) {
+  if (!options?.length) return null;
+  return options[Math.floor(Math.random() * options.length)];
 }
 
-const OUTFIT_SEEDS = [
-  { id: "beginner", label: "初心冒险家", guidebookIds: [1040002, 1060002, 1072001] },
-  { id: "warrior-blue", label: "蓝甲战士", guidebookIds: [1002001, 1040021, 1060016, 1072005] },
-  { id: "paladin-white", label: "白金骑士", guidebookIds: [1002028, 1040036, 1060026, 1072039] },
-  { id: "mage-purple", label: "紫袍法师", guidebookIds: [1002019, 1050003, 1072072] },
-  { id: "cleric-mint", label: "薄荷牧师", guidebookIds: [1002034, 1050031, 1072045] },
-  { id: "archer-green", label: "绿林射手", guidebookIds: [1002165, 1040067, 1060056, 1072081] },
-  { id: "rogue-night", label: "夜行飞侠", guidebookIds: [1002170, 1040057, 1060043, 1072032] },
-  { id: "toxic-lab", label: "毒药研究员", guidebookIds: [1002019, 1050035, 1072072] },
-];
+function getOption(options, id) {
+  return options.find((option) => String(option.id) === String(id)) || options[0];
+}
 
-const ACCESSORY_SEEDS = [
-  { id: "none", label: "无饰品", guidebookIds: [] },
-  { id: "cape", label: "披风", guidebookIds: [1102000] },
-  { id: "earring", label: "耳环", guidebookIds: [1032000] },
-  { id: "glove", label: "手套", guidebookIds: [1082002] },
-  { id: "cape-glove", label: "披风 + 手套", guidebookIds: [1102000, 1082002] },
-];
+function getClassGroupForProfile(profile) {
+  return CODE_TO_GROUP[profile?.code] || "warrior";
+}
 
-const FALLBACK_OUTFIT_OPTIONS = OUTFIT_SEEDS.map((option) => ({
-  ...option,
-  equipment: seedItems(option.guidebookIds),
-}));
+function pickFromSlot(items, slot, maxLevel = 60) {
+  const candidates = items
+    .filter(isRenderableVisualEquipment)
+    .filter((item) => item.slot === slot)
+    .filter((item) => toNumber(item.reqLevel, 0) <= maxLevel);
 
-const FALLBACK_ACCESSORY_OPTIONS = ACCESSORY_SEEDS.map((option) => ({
-  ...option,
-  equipment: seedItems(option.guidebookIds),
-}));
+  if (candidates.length) return pick(candidates);
 
-function resolveEquipmentSeed(seed, itemIndex, msioMap) {
-  if (!seed) return null;
+  return pick(
+    items
+      .filter(isRenderableVisualEquipment)
+      .filter((item) => item.slot === slot)
+  );
+}
 
-  const sourceItem =
-    itemIndex?.itemById?.get(String(seed.guidebookId)) ||
-    itemIndex?.itemByName?.get(normalizeName(seed.fallbackName)) ||
-    null;
+function makeEquipmentLoadout(profile, pool, maxLevel = 60) {
+  const classGroup = getClassGroupForProfile(profile);
+  const classItems = pool.classPools?.[classGroup] || [];
+  const slotPriority = ROLE_SLOT_PRIORITY[classGroup] || ROLE_SLOT_PRIORITY.warrior;
+  const selected = [];
+  const selectedSlots = new Set();
 
-  const guidebookId = toNumber(sourceItem?.id, seed.guidebookId);
-  const guidebookName = String(sourceItem?.name || seed.fallbackName || `Item ${guidebookId}`);
-  const msioId =
-    msioMap?.msioBySourceId?.get(String(guidebookId)) ||
-    msioMap?.msioBySourceName?.get(normalizeName(guidebookName)) ||
-    guidebookId;
+  const overall = pickFromSlot(classItems, "Overall", maxLevel);
+  const useOverall = Boolean(overall) && Math.random() < 0.5;
+
+  if (useOverall) {
+    selected.push(overall);
+    selectedSlots.add("Overall");
+    selectedSlots.add("Top");
+    selectedSlots.add("Bottom");
+  }
+
+  for (const slot of slotPriority) {
+    if (selectedSlots.has(slot)) continue;
+    if (slot === "Overall" && !useOverall) continue;
+
+    const item = pickFromSlot(classItems, slot, maxLevel);
+    if (!item) continue;
+
+    selected.push(item);
+    selectedSlots.add(slot);
+  }
+
+  return selected;
+}
+
+function makeConfigForProfile(profile, randomize = true, fixedGender = "female") {
+  const code = profile?.code || "SLAY";
+  const base = ROLE_PRESETS[code] || ROLE_PRESETS.SLAY;
+  const gender = fixedGender;
 
   return {
-    id: msioId,
-    guidebookId,
-    name: guidebookName,
-    className: sourceItem?.req_job_label || seed.fallbackClassName || "Unknown",
-    slot: sourceItem?.sub_category || seed.fallbackSlot || "Unknown",
-    source: sourceItem ? "guidebook-items-json" : "fallback-seed",
-    msioMapped: Boolean(msioMap?.msioBySourceId?.has(String(guidebookId)) || msioMap?.msioBySourceName?.has(normalizeName(guidebookName))),
+    skin: 2000,
+    gender,
+    hair: pick(HAIR_OPTIONS[gender]).id,
+    face: pick(FACE_OPTIONS[gender]).id,
+    emote: randomize ? pick(EMOTE_OPTIONS).id : base.emote,
   };
 }
 
-function resolveEquipmentOptions(optionSeeds, itemIndex, msioMap) {
-  return optionSeeds.map((option) => ({
-    ...option,
-    equipment: option.guidebookIds
-      .map((id) => resolveEquipmentSeed(EQUIPMENT_SEEDS[id], itemIndex, msioMap))
-      .filter(Boolean),
-  }));
+function makeFullyRandomConfig(fixedGender = "female") {
+  const gender = fixedGender;
+  return {
+    skin: pick(SKIN_OPTIONS).id,
+    gender,
+    hair: pick(HAIR_OPTIONS[gender]).id,
+    face: pick(FACE_OPTIONS[gender]).id,
+    emote: pick(EMOTE_OPTIONS).id,
+  };
 }
 
-function useGuidebookEquipmentOptions() {
-  const [state, setState] = useState({
-    outfitOptions: FALLBACK_OUTFIT_OPTIONS,
-    accessoryOptions: FALLBACK_ACCESSORY_OPTIONS,
-    loading: true,
-    source: "fallback-seed",
-    resolvedCount: 0,
-    mappedCount: 0,
-    error: "",
+function useGuidebookEquipmentPool() {
+  const [state, setState] = useState(() => {
+    const fallbackPool = buildFallbackPool();
+    return {
+      pool: fallbackPool,
+      stats: getPoolStats(fallbackPool),
+      loading: true,
+      source: fallbackPool.source,
+      error: "",
+    };
   });
 
   useEffect(() => {
@@ -348,20 +487,15 @@ function useGuidebookEquipmentOptions() {
         const itemJson = await itemsResponse.json();
         const mapText = await mapResponse.text();
         const itemRows = Array.isArray(itemJson) ? itemJson : itemJson.items || itemJson.data || [];
-        const itemIndex = buildGuidebookItemIndex(itemRows);
         const msioMap = buildMsioMap(parseCsv(mapText));
-        const outfitOptions = resolveEquipmentOptions(OUTFIT_SEEDS, itemIndex, msioMap);
-        const accessoryOptions = resolveEquipmentOptions(ACCESSORY_SEEDS, itemIndex, msioMap);
-        const allEquipment = [...outfitOptions, ...accessoryOptions].flatMap((option) => option.equipment || []);
+        const pool = buildEquipmentPool(itemRows, msioMap);
 
         if (!cancelled) {
           setState({
-            outfitOptions,
-            accessoryOptions,
+            pool,
+            stats: getPoolStats(pool),
             loading: false,
-            source: "guidebook-items-json + character-item-id-map",
-            resolvedCount: allEquipment.filter((item) => item.source === "guidebook-items-json").length,
-            mappedCount: allEquipment.filter((item) => item.msioMapped).length,
+            source: pool.source,
             error: "",
           });
         }
@@ -387,107 +521,26 @@ function useGuidebookEquipmentOptions() {
   return state;
 }
 
-const ROLE_PRESETS = {
-  SLAY: { outfit: "warrior-blue", accessory: "cape", emote: "angry" },
-  SHLD: { outfit: "paladin-white", accessory: "cape", emote: "default" },
-  POLE: { outfit: "warrior-blue", accessory: "glove", emote: "default" },
-  ZAPZ: { outfit: "mage-purple", accessory: "cape", emote: "bewildered" },
-  TOXI: { outfit: "toxic-lab", accessory: "earring", emote: "wink" },
-  HEAL: { outfit: "cleric-mint", accessory: "cape", emote: "smile" },
-  STAR: { outfit: "rogue-night", accessory: "glove", emote: "wink" },
-  STAB: { outfit: "rogue-night", accessory: "cape-glove", emote: "angry" },
-  KITE: { outfit: "archer-green", accessory: "cape", emote: "default" },
-  SNIP: { outfit: "archer-green", accessory: "glove", emote: "blink" },
-};
-
-const ROLE_RANDOM_POOLS = {
-  warrior: ["warrior-blue", "paladin-white", "beginner"],
-  magician: ["mage-purple", "cleric-mint", "toxic-lab"],
-  archer: ["archer-green", "beginner"],
-  thief: ["rogue-night", "beginner"],
-};
-
-const CODE_TO_GROUP = {
-  SLAY: "warrior",
-  SHLD: "warrior",
-  POLE: "warrior",
-  ZAPZ: "magician",
-  TOXI: "magician",
-  HEAL: "magician",
-  STAR: "thief",
-  STAB: "thief",
-  KITE: "archer",
-  SNIP: "archer",
-};
-
-function pick(options) {
-  return options[Math.floor(Math.random() * options.length)];
-}
-
-function getOption(options, id) {
-  return options.find((option) => String(option.id) === String(id)) || options[0];
-}
-
-function makeConfigForProfile(profile, randomize = true, fixedGender = "female") {
-  const code = profile?.code || "SLAY";
-  const base = ROLE_PRESETS[code] || ROLE_PRESETS.SLAY;
-  const group = CODE_TO_GROUP[code] || "warrior";
-  const gender = fixedGender;
-  const hair = pick(HAIR_OPTIONS[gender]).id;
-  const face = pick(FACE_OPTIONS[gender]).id;
-  const outfitPool = ROLE_RANDOM_POOLS[group] || OUTFIT_SEEDS.map((option) => option.id);
-
-  return {
-    skin: 2000,
-    gender,
-    hair,
-    face,
-    emote: randomize ? pick(EMOTE_OPTIONS).id : base.emote,
-    outfit: randomize ? pick(outfitPool) : base.outfit,
-    accessory: randomize ? pick(ACCESSORY_SEEDS).id : base.accessory,
-  };
-}
-
-function makeFullyRandomConfig(fixedGender = "female", outfitOptions = FALLBACK_OUTFIT_OPTIONS, accessoryOptions = FALLBACK_ACCESSORY_OPTIONS) {
-  const gender = fixedGender;
-  return {
-    skin: pick(SKIN_OPTIONS).id,
-    gender,
-    hair: pick(HAIR_OPTIONS[gender]).id,
-    face: pick(FACE_OPTIONS[gender]).id,
-    emote: pick(EMOTE_OPTIONS).id,
-    outfit: pick(outfitOptions).id,
-    accessory: pick(accessoryOptions).id,
-  };
-}
-
-function getEquipmentIds(option) {
-  return (option?.equipment || option?.items || [])
-    .map((item) => (typeof item === "object" ? item.id : item))
+function getEquipmentIds(equipment) {
+  return (equipment || [])
+    .map((item) => item?.id)
     .filter((id) => Number.isFinite(Number(id)) && Number(id) > 0)
     .map(Number);
 }
 
-function getEquipmentSummary(config, outfitOptions, accessoryOptions) {
-  const outfit = getOption(outfitOptions, config.outfit);
-  const accessory = getOption(accessoryOptions, config.accessory);
-
-  return [...(outfit.equipment || []), ...(accessory.equipment || [])]
-    .map((item) => `${item.name} / ${item.className} / OSMS ${item.guidebookId} → MSIO ${item.id}`)
+function getEquipmentSummary(equipment) {
+  return (equipment || [])
+    .map((item) => `${item.name} / ${item.className} / ${item.slot} / OSMS ${item.guidebookId} → MSIO ${item.id}`)
     .join("; ");
 }
 
-function buildCharacterItemIds(config, outfitOptions, accessoryOptions) {
-  const outfit = getOption(outfitOptions, config.outfit);
-  const accessory = getOption(accessoryOptions, config.accessory);
-
+function buildCharacterItemIds(config, equipment) {
   return [
     Number(config.skin),
     CHARACTER_STYLE_ITEM,
     Number(config.hair),
     Number(config.face),
-    ...getEquipmentIds(outfit),
-    ...getEquipmentIds(accessory),
+    ...getEquipmentIds(equipment),
   ].filter(Boolean);
 }
 
@@ -505,20 +558,21 @@ function SelectField({ label, value, options, onChange }) {
 }
 
 export default function CharacterBuilder({ profile }) {
-  const equipmentOptions = useGuidebookEquipmentOptions();
-  const { outfitOptions, accessoryOptions } = equipmentOptions;
+  const equipmentPoolState = useGuidebookEquipmentPool();
   const defaultConfig = useMemo(() => makeConfigForProfile(profile, true, "female"), [profile?.code]);
   const [config, setConfig] = useState(defaultConfig);
+  const [equipment, setEquipment] = useState(() => makeEquipmentLoadout(profile, buildFallbackPool()));
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     setConfig(defaultConfig);
+    setEquipment(makeEquipmentLoadout(profile, equipmentPoolState.pool));
     setImageFailed(false);
-  }, [defaultConfig]);
+  }, [defaultConfig, equipmentPoolState.pool, profile]);
 
   const characterItemIds = useMemo(
-    () => buildCharacterItemIds(config, outfitOptions, accessoryOptions),
-    [config, outfitOptions, accessoryOptions]
+    () => buildCharacterItemIds(config, equipment),
+    [config, equipment]
   );
   const imageUrl = useMemo(
     () => buildMapleStoryIoCharacterUrl({ itemIds: characterItemIds, emote: config.emote }),
@@ -529,10 +583,12 @@ export default function CharacterBuilder({ profile }) {
     setImageFailed(false);
   }, [imageUrl]);
 
+  const classGroup = getClassGroupForProfile(profile);
   const hairOptions = HAIR_OPTIONS[config.gender] || HAIR_OPTIONS.male;
   const faceOptions = FACE_OPTIONS[config.gender] || FACE_OPTIONS.male;
   const selectedEmote = getOption(EMOTE_OPTIONS, config.emote);
-  const equipmentSummary = getEquipmentSummary(config, outfitOptions, accessoryOptions);
+  const equipmentSummary = getEquipmentSummary(equipment);
+  const poolSummary = getClassPoolSummary(equipmentPoolState.stats);
 
   function updateConfig(key, value) {
     setImageFailed(false);
@@ -551,16 +607,19 @@ export default function CharacterBuilder({ profile }) {
   function randomizeForResult() {
     setImageFailed(false);
     setConfig(makeConfigForProfile(profile, true, config.gender));
+    setEquipment(makeEquipmentLoadout(profile, equipmentPoolState.pool));
   }
 
   function resetRecommended() {
     setImageFailed(false);
     setConfig(makeConfigForProfile(profile, false, config.gender));
+    setEquipment(makeEquipmentLoadout(profile, equipmentPoolState.pool, 40));
   }
 
   function randomizeAll() {
     setImageFailed(false);
-    setConfig(makeFullyRandomConfig(config.gender, outfitOptions, accessoryOptions));
+    setConfig(makeFullyRandomConfig(config.gender));
+    setEquipment(makeEquipmentLoadout(profile, equipmentPoolState.pool, 120));
   }
 
   return (
@@ -588,7 +647,7 @@ export default function CharacterBuilder({ profile }) {
       <details className="character-builder-controls" data-html2canvas-ignore="true">
         <summary className="builder-summary">
           <b>自定义 API 角色</b>
-          <span>已折叠 · 随机不会改变性别</span>
+          <span>已折叠 · 装备从全职业池随机</span>
         </summary>
 
         <div className="builder-control-head">
@@ -596,7 +655,7 @@ export default function CharacterBuilder({ profile }) {
           <div className="builder-button-row">
             <button type="button" className="ghost-btn small-btn" onClick={resetRecommended}>结果推荐</button>
             <button type="button" className="primary-btn small-btn" onClick={randomizeForResult}>本职业随机</button>
-            <button type="button" className="ghost-btn small-btn" onClick={randomizeAll}>全随机</button>
+            <button type="button" className="ghost-btn small-btn" onClick={randomizeAll}>高等级随机</button>
           </div>
         </div>
 
@@ -606,11 +665,10 @@ export default function CharacterBuilder({ profile }) {
           <SelectField label="发型" value={String(config.hair)} options={hairOptions} onChange={(value) => updateConfig("hair", Number(value))} />
           <SelectField label="脸型" value={String(config.face)} options={faceOptions} onChange={(value) => updateConfig("face", Number(value))} />
           <SelectField label="表情" value={config.emote} options={EMOTE_OPTIONS} onChange={(value) => updateConfig("emote", value)} />
-          <SelectField label="饰品" value={config.accessory} options={accessoryOptions} onChange={(value) => updateConfig("accessory", value)} />
         </div>
 
         <p className="builder-note">
-          使用 MapleStory.IO GMS v83 API 实时生成；装备从 guidebook `items.json` 按 ID/名称读取，并用 `character_item_id_map.csv` 转成 MSIO 渲染 ID；当前数据源：{equipmentOptions.source}{equipmentOptions.loading ? "（加载中）" : ""}{equipmentOptions.error ? `（回退原因：${equipmentOptions.error}）` : ""}；已解析 {equipmentOptions.resolvedCount} 件，已映射 {equipmentOptions.mappedCount} 件；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {normalizeMsioEmote(selectedEmote.id)}；Item IDs：{characterItemIds.join(", ")}；装备池：{equipmentSummary}
+          使用 MapleStory.IO GMS v83 API 实时生成；装备池从 guidebook `items.json` 全量读取 Equipment，并用 `character_item_id_map.csv` 把 OSMS ID/名称转成 MSIO 渲染 ID；当前职业池：{CLASS_LABELS[classGroup]}；当前数据源：{equipmentPoolState.source}{equipmentPoolState.loading ? "（加载中）" : ""}{equipmentPoolState.error ? `（回退原因：${equipmentPoolState.error}）` : ""}；各职业可渲染/总装备：{poolSummary}；当前表情：{selectedEmote.label} / {selectedEmote.apiCode} / {normalizeMsioEmote(selectedEmote.id)}；Item IDs：{characterItemIds.join(", ")}；当前装备：{equipmentSummary}
         </p>
       </details>
     </div>
