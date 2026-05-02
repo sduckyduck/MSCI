@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import {
   answerScale,
@@ -25,6 +25,14 @@ const stageLabels = {
 function profileTitle(profile) {
   if (!profile) return "—";
   return profile.code ? `${profile.code} ${profile.personaName || profile.name}` : profile.name;
+}
+
+function scrollPageToTop() {
+  if (typeof window === "undefined") return;
+
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
 }
 
 function CompletionBadge({ missing, total }) {
@@ -205,6 +213,13 @@ function App() {
   const isSecondComplete = secondMissing === 0;
   const confidence = getConfidence(firstResults);
 
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      scrollPageToTop();
+      setTimeout(scrollPageToTop, 80);
+    });
+  }, [stage, selectedFirstJob]);
+
   function updateFirstAnswer(questionId, value) {
     setFirstResponses((prev) => ({ ...prev, [questionId]: value }));
   }
@@ -218,13 +233,11 @@ function App() {
     setLockedFirstJob(firstResults[0]?.id || "warrior");
     setSecondResponses({});
     setStage("second");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function showFinalResult() {
     if (!isSecondComplete) return;
     setStage("result");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function restart() {
@@ -232,7 +245,17 @@ function App() {
     setFirstResponses({});
     setSecondResponses({});
     setLockedFirstJob(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function downloadImage(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async function saveResultScreenshot() {
@@ -247,13 +270,22 @@ function App() {
         useCORS: true,
       });
 
-      const dataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = `MSCI-${secondResults[0]?.code || "result"}.png`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const fileName = `MSCI-${secondResults[0]?.code || "result"}.png`;
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) return;
+
+      const file = new File([blob], fileName, { type: "image/png" });
+
+      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+        await navigator.share({
+          title: "MSCI 冒险岛职业人格测试",
+          text: `我的 MSCI 结果是 ${profileTitle(secondResults[0])}`,
+          files: [file],
+        });
+        return;
+      }
+
+      downloadImage(blob, fileName);
     } finally {
       setIsSaving(false);
     }
@@ -408,7 +440,7 @@ function App() {
           </section>
           <div className="action-row">
             <button className="primary-btn" onClick={saveResultScreenshot} disabled={isSaving}>
-              {isSaving ? "正在生成截图..." : "保存结果截图"}
+              {isSaving ? "正在生成截图..." : "保存 / 分享结果图"}
             </button>
             <button className="primary-btn" onClick={restart}>重新测试</button>
             <button className="ghost-btn" onClick={() => setStage("second")}>调整二转答案</button>
