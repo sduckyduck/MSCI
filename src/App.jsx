@@ -100,6 +100,20 @@ function DimensionBars({ scores, dimensions }) {
   );
 }
 
+function CollapsibleDimensions({ title, scores, dimensions }) {
+  return (
+    <details className="collapsible-dimensions">
+      <summary>
+        <span>{title}</span>
+        <small>展开查看模型后台维度</small>
+      </summary>
+      <div className="collapsible-body">
+        <DimensionBars scores={scores} dimensions={dimensions} />
+      </div>
+    </details>
+  );
+}
+
 function RankingTable({ results }) {
   return (
     <div className="ranking-table">
@@ -352,7 +366,13 @@ function App() {
                   onChange={updateFirstAnswer}
                 />
               ))}
-              {isFirstComplete && <DimensionBars scores={firstScores} dimensions={firstJobDimensions} />}
+              {isFirstComplete && (
+                <CollapsibleDimensions
+                  title="一转隐藏维度"
+                  scores={firstScores}
+                  dimensions={firstJobDimensions}
+                />
+              )}
             </div>
           </section>
           {isFirstComplete && (
@@ -395,7 +415,13 @@ function App() {
                   onChange={updateSecondAnswer}
                 />
               ))}
-              {isSecondComplete && <DimensionBars scores={secondScores} dimensions={secondDimensions} />}
+              {isSecondComplete && (
+                <CollapsibleDimensions
+                  title="二转隐藏维度"
+                  scores={secondScores}
+                  dimensions={secondDimensions}
+                />
+              )}
             </div>
           </section>
           {isSecondComplete && (
@@ -430,14 +456,16 @@ function App() {
               </section>
             </div>
           </div>
-          <section className="panel">
-            <h3>一转隐藏维度</h3>
-            <DimensionBars scores={firstScores} dimensions={firstJobDimensions} />
-          </section>
-          <section className="panel">
-            <h3>二转隐藏维度</h3>
-            <DimensionBars scores={secondScores} dimensions={secondDimensions} />
-          </section>
+          <CollapsibleDimensions
+            title="一转隐藏维度"
+            scores={firstScores}
+            dimensions={firstJobDimensions}
+          />
+          <CollapsibleDimensions
+            title="二转隐藏维度"
+            scores={secondScores}
+            dimensions={secondDimensions}
+          />
           <div className="action-row">
             <button className="primary-btn" onClick={saveResultScreenshot} disabled={isSaving}>
               {isSaving ? "正在生成截图..." : "保存 / 分享结果图"}
