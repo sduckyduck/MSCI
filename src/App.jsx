@@ -29,10 +29,14 @@ function profileTitle(profile) {
 
 function scrollPageToTop() {
   if (typeof window === "undefined") return;
-
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   document.documentElement.scrollTop = 0;
   document.body.scrollTop = 0;
+}
+
+function getPersonalityImageSrc(profile) {
+  const code = profile?.code || "PLACEHOLDER";
+  return `${import.meta.env.BASE_URL}personalities/${code}.png`;
 }
 
 function CompletionBadge({ missing, total }) {
@@ -44,27 +48,61 @@ function CompletionBadge({ missing, total }) {
   );
 }
 
-function QuestionCard({ question, value, onChange, index }) {
+function ProgressDots({ questions, responses, currentIndex, onJump }) {
+  const doneCount = questions.length - getMissingQuestionCount(questions, responses);
+
+  return (
+    <section className="progress-panel" aria-label="答题进度">
+      <div className="progress-head">
+        <div className="progress-bar" aria-hidden="true">
+          <span style={{ width: `${Math.round((doneCount / questions.length) * 100)}%` }} />
+        </div>
+        <strong>{doneCount} / {questions.length}</strong>
+      </div>
+      <div className="question-dots">
+        {questions.map((question, index) => {
+          const answered = responses[question.id] !== undefined;
+          const active = index === currentIndex;
+          return (
+            <button
+              key={question.id}
+              type="button"
+              className={`question-dot ${answered ? "answered" : ""} ${active ? "active" : ""}`}
+              aria-label={`跳转到第 ${index + 1} 题`}
+              onClick={() => onJump(index)}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function QuestionCard({ question, value, onChange, index, total }) {
   const options = question.options || answerScale;
 
   return (
-    <article className="question-card">
-      <div className="question-head">
-        <span className="question-index">Q{index + 1}</span>
-        <h3>{question.text}</h3>
+    <article className="wizard-card">
+      <div className="wizard-meta">
+        <span className="question-index">第 {index + 1} 题</span>
+        <span>维度已隐藏</span>
       </div>
-      <div className="answer-row" role="radiogroup" aria-label={question.text}>
-        {options.map((answer) => (
+      <h2>{question.text}</h2>
+      <div className="wizard-options" role="radiogroup" aria-label={question.text}>
+        {options.map((answer, optionIndex) => (
           <button
             key={answer.value}
             type="button"
-            className={`answer-pill ${value === answer.value ? "active" : ""}`}
+            className={`wizard-option ${value === answer.value ? "active" : ""}`}
             onClick={() => onChange(question.id, answer.value)}
           >
+            <span className="option-radio" aria-hidden="true" />
+            <b>{String.fromCharCode(65 + optionIndex)}</b>
             <span>{answer.label}</span>
           </button>
         ))}
       </div>
+      <p className="wizard-help">选择后会自动进入下一题，也可以点上方泡泡跳回任意题。</p>
     </article>
   );
 }
@@ -133,58 +171,144 @@ function RankingTable({ results }) {
   );
 }
 
-function WaitingForAnswers({ missing }) {
+function StageResultPreview({ title, result, subtitle, buttonLabel, onClick }) {
   return (
-    <div className="waiting-card">
-      <b>完成所有题目后显示结果</b>
-      <p>还剩 {missing} 题。为了避免提前剧透职业倾向，排行榜和二转入口会在答完后出现。</p>
+    <section className="stage-result-card">
+      <p className="eyebrow">{title}</p>
+      <h2>{profileTitle(result)}</h2>
+      <p>{subtitle}</p>
+      <button type="button" className="primary-btn" onClick={onClick}>{buttonLabel}</button>
+    </section>
+  );
+}
+
+function TestWizard({
+  title,
+  subtitle,
+  questions,
+  responses,
+  currentIndex,
+  setCurrentIndex,
+  onAnswer,
+  isComplete,
+  completePreview,
+  scores,
+  dimensions,
+}) {
+  const currentQuestion = questions[currentIndex] || questions[0];
+  const currentValue = currentQuestion ? responses[currentQuestion.id] : undefined;
+
+  function handleAnswer(questionId, value) {
+    onAnswer(questionId, value);
+    const isLastQuestion = currentIndex >= questions.length - 1;
+    if (!isLastQuestion) {
+      window.setTimeout(() => setCurrentIndex(currentIndex + 1), 180);
+    }
+  }
+
+  return (
+    <section className="wizard-shell">
+      <div className="wizard-title-row">
+        <div>
+          <p className="eyebrow">{title}</p>
+          <h1>{subtitle}</h1>
+        </div>
+        <CompletionBadge missing={getMissingQuestionCount(questions, responses)} total={questions.length} />
+      </div>
+
+      <ProgressDots
+        questions={questions}
+        responses={responses}
+        currentIndex={currentIndex}
+        onJump={setCurrentIndex}
+      />
+
+      {currentQuestion && (
+        <QuestionCard
+          question={currentQuestion}
+          index={currentIndex}
+          total={questions.length}
+          value={currentValue}
+          onChange={handleAnswer}
+        />
+      )}
+
+      <div className="wizard-nav-row">
+        <button
+          type="button"
+          className="ghost-btn"
+          disabled={currentIndex === 0}
+          onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+        >
+          ← 上一题
+        </button>
+        <button
+          type="button"
+          className="ghost-btn"
+          disabled={currentIndex >= questions.length - 1}
+          onClick={() => setCurrentIndex(Math.min(questions.length - 1, currentIndex + 1))}
+        >
+          下一题 →
+        </button>
+      </div>
+
+      {isComplete && completePreview}
+
+      {isComplete && (
+        <CollapsibleDimensions title={`${title}隐藏维度`} scores={scores} dimensions={dimensions} />
+      )}
+    </section>
+  );
+}
+
+function PersonalityImage({ profile }) {
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    setMissing(false);
+  }, [profile?.code]);
+
+  return (
+    <div className="personality-image-frame">
+      {!missing && (
+        <img
+          src={getPersonalityImageSrc(profile)}
+          alt={`${profile?.code || "MSCI"} ${profile?.personaName || "人格图片"}`}
+          onError={() => setMissing(true)}
+        />
+      )}
+      <div className="personality-placeholder">
+        <span>{profile?.code || "MSCI"}</span>
+        <b>{profile?.personaName || "人格图片占位"}</b>
+        <small>替换图片：public/personalities/{profile?.code || "CODE"}.png</small>
+      </div>
     </div>
   );
 }
 
 function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond, confidence }) {
   return (
-    <section className="result-hero">
-      <div>
-        <p className="eyebrow">你的 MSCI 职业人格</p>
-        <div className="result-code">{secondResult.code}</div>
+    <section className="result-hero sbti-result-card">
+      <div className="result-image-panel">
+        <p>你的职业人格是：</p>
         <h2>{secondResult.personaName}</h2>
-        <p className="result-tag">
-          {firstResult.name} - {secondResult.name} / {secondResult.tag}
-        </p>
+        <div className="result-code green-code">{secondResult.code}</div>
+        <PersonalityImage profile={secondResult} />
         <p className="result-slogan">{secondResult.slogan}</p>
-        <p>{firstResult.slogan}</p>
+      </div>
+      <div className="result-info-panel">
+        <p className="eyebrow">你的主类型</p>
+        <h3>{secondResult.code}（{secondResult.personaName}）</h3>
         <p>{secondResult.description}</p>
-      </div>
-      <div className="score-card big">
-        <span>综合匹配度</span>
-        <strong>{Math.round((firstResult.matchPercent + secondResult.matchPercent) / 2)}%</strong>
-        <small>置信度：{confidence.label}，Top1 与 Top2 差距 {confidence.gap} 分</small>
-      </div>
-      <div className="secondary-card">
-        <b>副人格参考</b>
-        <p>
-          一转副人格：{profileTitle(secondaryFirst)}
-          <br />
+        <div className="match-pill">
+          匹配度 {Math.round((firstResult.matchPercent + secondResult.matchPercent) / 2)}% · 置信度 {confidence.label}
+        </div>
+        <p className="secondary-text">
+          一转副人格：{profileTitle(secondaryFirst)}<br />
           二转副人格：{profileTitle(secondarySecond)}
         </p>
-        <small>{confidence.note}</small>
       </div>
     </section>
-  );
-}
-
-function BottomCta({ title, subtitle, buttonLabel, onClick }) {
-  return (
-    <div className="bottom-cta" role="region" aria-label={title}>
-      <div>
-        <b>{title}</b>
-        <span>{subtitle}</span>
-      </div>
-      <button type="button" className="primary-btn" onClick={onClick}>
-        {buttonLabel}
-      </button>
-    </div>
   );
 }
 
@@ -193,6 +317,8 @@ function App() {
   const [firstResponses, setFirstResponses] = useState({});
   const [secondResponses, setSecondResponses] = useState({});
   const [lockedFirstJob, setLockedFirstJob] = useState(null);
+  const [firstIndex, setFirstIndex] = useState(0);
+  const [secondIndex, setSecondIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const resultCaptureRef = useRef(null);
 
@@ -246,6 +372,7 @@ function App() {
     if (!isFirstComplete) return;
     setLockedFirstJob(firstResults[0]?.id || "warrior");
     setSecondResponses({});
+    setSecondIndex(0);
     setStage("second");
   }
 
@@ -259,6 +386,8 @@ function App() {
     setFirstResponses({});
     setSecondResponses({});
     setLockedFirstJob(null);
+    setFirstIndex(0);
+    setSecondIndex(0);
   }
 
   function downloadImage(blob, fileName) {
@@ -279,7 +408,7 @@ function App() {
     try {
       setIsSaving(true);
       const canvas = await html2canvas(target, {
-        backgroundColor: "#f4dfb7",
+        backgroundColor: "#eef6ef",
         scale: Math.min(window.devicePixelRatio || 2, 3),
         useCORS: true,
       });
@@ -306,138 +435,79 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">MapleStory Class Indicator</p>
-          <h1>MSCI 冒险岛职业人格测试</h1>
-        </div>
-        <div className="stage-chip">{stageLabels[stage]}</div>
+    <main className="app-shell sbti-shell">
+      <header className="sbti-topbar">
+        <div className="logo-mark">M</div>
+        <b>MSCI Test</b>
+        <span>Class × Type</span>
+        <span>Types</span>
+        <button type="button" className="language-pill">中文</button>
       </header>
 
       {stage === "intro" && (
-        <section className="intro-card">
+        <section className="intro-card sbti-intro-card">
           <div>
-            <p className="eyebrow">严谨一点的抽象职业测试</p>
-            <h2>不是 A=战士、B=法师，而是隐藏维度匹配职业人格。</h2>
+            <p className="eyebrow">MapleStory Class Indicator</p>
+            <h1>MSCI 冒险岛职业人格测试</h1>
             <p>
-              MSCI 会先测你的开荒效率、资源投入、战斗距离、操作复杂度、组队倾向和后期耐心，
-              再把你的维度向量和职业画像做匹配，最后给出一转职业、二转分支、副人格和四字母人格代号。
+              一题一页，选择后自动跳下一题。系统会隐藏后台维度，只给你最后的四字母职业人格结果。
             </p>
-          </div>
-          <div className="model-card">
-            <b>当前版本</b>
-            <ul>
-              <li>一转：TANK / MAGI / EDGE / ARRO</li>
-              <li>二转：SLAY / SHLD / POLE / ZAPZ / TOXI / HEAL / STAR / STAB / KITE / SNIP</li>
-              <li>评分：抽象情景题 + 隐藏维度 + 余弦相似度</li>
-              <li>输出：人格代号、职业分支、匹配度、副人格、维度图</li>
-            </ul>
           </div>
           <button className="primary-btn" onClick={() => setStage("first")}>开始测试</button>
         </section>
       )}
 
       {stage === "first" && (
-        <>
-          <section className="test-layout">
-            <aside className="sticky-panel">
-              <h2>第一阶段：一转倾向</h2>
-              <p>回答所有题目后，系统会锁定最匹配的一转职业，再进入二转分支测试。</p>
-              <CompletionBadge missing={firstMissing} total={firstJobQuestions.length} />
-              {isFirstComplete ? (
-                <>
-                  <RankingTable results={firstResults} />
-                  <button className="primary-btn" onClick={continueToSecond}>
-                    进入二转测试
-                  </button>
-                </>
-              ) : (
-                <WaitingForAnswers missing={firstMissing} />
-              )}
-            </aside>
-            <div className="question-list">
-              {firstJobQuestions.map((question, index) => (
-                <QuestionCard
-                  key={question.id}
-                  question={question}
-                  index={index}
-                  value={firstResponses[question.id]}
-                  onChange={updateFirstAnswer}
-                />
-              ))}
-              {isFirstComplete && (
-                <CollapsibleDimensions
-                  title="一转隐藏维度"
-                  scores={firstScores}
-                  dimensions={firstJobDimensions}
-                />
-              )}
-            </div>
-          </section>
-          {isFirstComplete && (
-            <BottomCta
-              title="一转结果已生成"
-              subtitle={`你的一转人格：${profileTitle(firstResults[0])}`}
+        <TestWizard
+          title="一转测试"
+          subtitle="先测你的冒险家底色"
+          questions={firstJobQuestions}
+          responses={firstResponses}
+          currentIndex={firstIndex}
+          setCurrentIndex={setFirstIndex}
+          onAnswer={updateFirstAnswer}
+          isComplete={isFirstComplete}
+          scores={firstScores}
+          dimensions={firstJobDimensions}
+          completePreview={(
+            <StageResultPreview
+              title="一转人格已解锁"
+              result={firstResults[0]}
+              subtitle="第一阶段完成，继续进入二转分支测试。"
               buttonLabel="进入二转测试"
               onClick={continueToSecond}
             />
           )}
-        </>
+        />
       )}
 
       {stage === "second" && (
-        <>
-          <section className="test-layout">
-            <aside className="sticky-panel">
-              <p className="eyebrow">已锁定一转</p>
-              <h2>{profileTitle(firstJobProfiles[selectedFirstJob])}</h2>
-              <p>{firstJobProfiles[selectedFirstJob]?.slogan}</p>
-              <p>{firstJobProfiles[selectedFirstJob]?.description}</p>
-              <CompletionBadge missing={secondMissing} total={secondQuestions.length} />
-              {isSecondComplete ? (
-                <>
-                  <RankingTable results={secondResults} />
-                  <button className="primary-btn" onClick={showFinalResult}>查看最终结果</button>
-                </>
-              ) : (
-                <WaitingForAnswers missing={secondMissing} />
-              )}
-              <button className="ghost-btn" onClick={() => setStage("first")}>返回一转题目</button>
-            </aside>
-            <div className="question-list">
-              {secondQuestions.map((question, index) => (
-                <QuestionCard
-                  key={question.id}
-                  question={question}
-                  index={index}
-                  value={secondResponses[question.id]}
-                  onChange={updateSecondAnswer}
-                />
-              ))}
-              {isSecondComplete && (
-                <CollapsibleDimensions
-                  title="二转隐藏维度"
-                  scores={secondScores}
-                  dimensions={secondDimensions}
-                />
-              )}
-            </div>
-          </section>
-          {isSecondComplete && (
-            <BottomCta
-              title="二转结果已生成"
-              subtitle={`你的二转人格：${profileTitle(secondResults[0])}`}
+        <TestWizard
+          title="二转测试"
+          subtitle={`已锁定：${profileTitle(firstJobProfiles[selectedFirstJob])}`}
+          questions={secondQuestions}
+          responses={secondResponses}
+          currentIndex={secondIndex}
+          setCurrentIndex={setSecondIndex}
+          onAnswer={updateSecondAnswer}
+          isComplete={isSecondComplete}
+          scores={secondScores}
+          dimensions={secondDimensions}
+          completePreview={(
+            <StageResultPreview
+              title="二转人格已解锁"
+              result={secondResults[0]}
+              subtitle="你的最终四字母职业人格已经生成。"
               buttonLabel="查看最终结果"
               onClick={showFinalResult}
             />
           )}
-        </>
+        />
       )}
 
       {stage === "result" && (
-        <section className="result-page">
-          <div ref={resultCaptureRef} className="result-capture-card">
+        <section className="result-page sbti-result-page">
+          <div ref={resultCaptureRef} className="result-capture-card sbti-capture-card">
             <ResultHero
               firstResult={firstResults[0]}
               secondResult={secondResults[0]}
@@ -445,17 +515,12 @@ function App() {
               secondarySecond={secondResults[1]}
               confidence={confidence}
             />
-            <div className="result-grid">
-              <section className="panel">
-                <h3>一转排名</h3>
-                <RankingTable results={firstResults} />
-              </section>
-              <section className="panel">
-                <h3>二转排名</h3>
-                <RankingTable results={secondResults} />
-              </section>
-            </div>
+            <section className="panel compact-ranking-panel">
+              <h3>你的职业排名</h3>
+              <RankingTable results={secondResults} />
+            </section>
           </div>
+
           <CollapsibleDimensions
             title="一转隐藏维度"
             scores={firstScores}
@@ -468,7 +533,7 @@ function App() {
           />
           <div className="action-row">
             <button className="primary-btn" onClick={saveResultScreenshot} disabled={isSaving}>
-              {isSaving ? "正在生成截图..." : "保存 / 分享结果图"}
+              {isSaving ? "正在生成截图..." : "导出分享卡片"}
             </button>
             <button className="primary-btn" onClick={restart}>重新测试</button>
             <button className="ghost-btn" onClick={() => setStage("second")}>调整二转答案</button>
