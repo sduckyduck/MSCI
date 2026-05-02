@@ -1,6 +1,8 @@
 const ARCHER_ROLE_WEAPON_RULES = {
   KITE: {
-    action: "stand2",
+    // MapleStory Studio displays bow correctly with Standing (1-Handed),
+    // which maps to the legacy API action `stand1`.
+    action: "stand1",
     weaponId: "1452000",
     allowedWeaponPrefixes: ["145"],
   },
