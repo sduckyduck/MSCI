@@ -101,7 +101,8 @@ button {
 .result-hero,
 .model-card,
 .score-card,
-.secondary-card {
+.secondary-card,
+.collapsible-dimensions {
   background: var(--paper);
   border: 2px solid var(--line);
   border-radius: 24px;
@@ -332,6 +333,49 @@ button {
   font-size: 20px;
   font-weight: 900;
   color: #9a4f1e;
+}
+
+.collapsible-dimensions {
+  overflow: hidden;
+}
+
+.collapsible-dimensions summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 18px 20px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--brown-dark);
+  font-weight: 900;
+}
+
+.collapsible-dimensions summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-dimensions summary::after {
+  content: "展开";
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 218, 114, 0.72);
+  color: var(--brown-dark);
+  font-size: 13px;
+}
+
+.collapsible-dimensions[open] summary::after {
+  content: "收起";
+}
+
+.collapsible-dimensions summary small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.collapsible-body {
+  padding: 0 20px 20px;
 }
 
 .dimension-grid {
@@ -572,12 +616,22 @@ button {
   .question-card,
   .sticky-panel,
   .panel,
-  .result-hero {
+  .result-hero,
+  .collapsible-dimensions {
     border-radius: 18px;
   }
 
   .topbar h1 {
     font-size: 26px;
+  }
+
+  .collapsible-dimensions summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .collapsible-dimensions summary::after {
+    align-self: flex-start;
   }
 
   .bottom-cta {
