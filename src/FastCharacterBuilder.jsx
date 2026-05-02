@@ -33,61 +33,101 @@ const ROLE_PRESETS = {
     label: "剑客",
     action: "stand2",
     emote: "angry",
-    equipment: [1002001, 1040002, 1060016, 1072001, 1082002, 1102000, 1402000],
+    equipmentSets: [
+      [1002001, 1040002, 1060016, 1072001, 1082002, 1102000, 1402000],
+      [1002001, 1040002, 1060002, 1072001, 1082002, 1402000],
+      [1040002, 1060016, 1072001, 1102000, 1402000],
+    ],
   },
   SHLD: {
     label: "准骑士",
     action: "stand1",
     emote: "default",
-    equipment: [1002001, 1040002, 1060002, 1072001, 1082002, 1102000, 1302000, 1092000],
+    equipmentSets: [
+      [1002001, 1040002, 1060002, 1072001, 1082002, 1102000, 1302000, 1092000],
+      [1002001, 1040002, 1060016, 1072001, 1082002, 1302000, 1092000],
+      [1040002, 1060002, 1072001, 1102000, 1302000, 1092000],
+    ],
   },
   POLE: {
     label: "枪战士",
     action: "stand2",
     emote: "default",
-    equipment: [1002001, 1040002, 1060016, 1072001, 1082002, 1102000, 1432000],
+    equipmentSets: [
+      [1002001, 1040002, 1060016, 1072001, 1082002, 1102000, 1432000],
+      [1002001, 1040002, 1060002, 1072001, 1082002, 1442000],
+      [1040002, 1060016, 1072001, 1102000, 1432000],
+    ],
   },
   ZAPZ: {
     label: "冰雷法师",
     action: "stand1",
     emote: "bewildered",
-    equipment: [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1372000],
+    equipmentSets: [
+      [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1372000],
+      [1002019, 1050003, 1072001, 1082002, 1372000],
+      [1050003, 1072001, 1102000, 1032000, 1382000],
+    ],
   },
   TOXI: {
     label: "火毒法师",
     action: "stand1",
     emote: "wink",
-    equipment: [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1382000],
+    equipmentSets: [
+      [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1382000],
+      [1002019, 1050003, 1072001, 1082002, 1372000],
+      [1050003, 1072001, 1102000, 1032000, 1382000],
+    ],
   },
   HEAL: {
     label: "牧师",
     action: "stand1",
     emote: "smile",
-    equipment: [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1372000],
+    equipmentSets: [
+      [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1372000],
+      [1050003, 1072001, 1082002, 1102000, 1372000],
+      [1002019, 1050003, 1072001, 1032000, 1382000],
+    ],
   },
   STAR: {
     label: "刺客",
     action: "stand1",
     emote: "wink",
-    equipment: [1002170, 1040002, 1060043, 1072001, 1082002, 1102000, 1032000, 1472000],
+    equipmentSets: [
+      [1002170, 1040002, 1060043, 1072001, 1082002, 1102000, 1032000, 1472000],
+      [1002170, 1040002, 1060002, 1072001, 1082002, 1472000],
+      [1040002, 1060043, 1072001, 1102000, 1032000, 1472000],
+    ],
   },
   STAB: {
     label: "侠盗",
     action: "stand1",
     emote: "angry",
-    equipment: [1002170, 1040002, 1060043, 1072001, 1082002, 1102000, 1032000, 1332000, 1092000],
+    equipmentSets: [
+      [1002170, 1040002, 1060043, 1072001, 1082002, 1102000, 1032000, 1332000, 1092000],
+      [1002170, 1040002, 1060002, 1072001, 1082002, 1332000, 1092000],
+      [1040002, 1060043, 1072001, 1102000, 1332000, 1092000],
+    ],
   },
   KITE: {
     label: "猎人",
     action: "stand1",
     emote: "default",
-    equipment: [1002165, 1040002, 1060056, 1072001, 1082002, 1102000, 1032000, 1452000],
+    equipmentSets: [
+      [1002165, 1040002, 1060056, 1072001, 1082002, 1102000, 1032000, 1452000],
+      [1002165, 1040002, 1060002, 1072001, 1082002, 1452000],
+      [1040002, 1060056, 1072001, 1102000, 1032000, 1452000],
+    ],
   },
   SNIP: {
     label: "弩弓手",
     action: "stand2",
     emote: "blink",
-    equipment: [1002165, 1040002, 1060056, 1072001, 1082002, 1102000, 1032000, 1462000],
+    equipmentSets: [
+      [1002165, 1040002, 1060056, 1072001, 1082002, 1102000, 1032000, 1462000],
+      [1002165, 1040002, 1060002, 1072001, 1082002, 1462000],
+      [1040002, 1060056, 1072001, 1102000, 1032000, 1462000],
+    ],
   },
 };
 
@@ -112,6 +152,11 @@ function pickByVariant(values, variant, offset = 0) {
   return values[Math.abs(variant + offset) % values.length];
 }
 
+function getEquipmentSet(preset, variant) {
+  const sets = preset.equipmentSets || [preset.equipment || []];
+  return pickByVariant(sets, variant, 0) || [];
+}
+
 function makeCharacterConfig({ roleCode, gender, variant }) {
   const preset = ROLE_PRESETS[roleCode] || ROLE_PRESETS.SLAY;
 
@@ -120,7 +165,7 @@ function makeCharacterConfig({ roleCode, gender, variant }) {
     hair: pickByVariant(HAIR_OPTIONS[gender], variant, 1),
     face: pickByVariant(FACE_OPTIONS[gender], variant, 2),
     emote: variant === 0 ? preset.emote : pickByVariant(EMOTES, variant, 3),
-    equipment: preset.equipment,
+    equipment: getEquipmentSet(preset, variant),
     action: preset.action || DEFAULT_ACTION,
   };
 }
@@ -153,6 +198,7 @@ function FastCharacterBuilder({ profile }) {
   );
 
   const imageSrc = useMemo(() => buildMapleStoryIoCharacterUrl(config), [config]);
+  const equipmentSetNumber = (Math.abs(variant) % (preset.equipmentSets?.length || 1)) + 1;
 
   function updateGender(nextGender) {
     setGender(nextGender);
@@ -191,14 +237,14 @@ function FastCharacterBuilder({ profile }) {
       <details className="character-builder-controls">
         <summary className="builder-summary">
           <b>角色预览</b>
-          <span>{preset.label} · {gender === "female" ? "女" : "男"}</span>
+          <span>{preset.label} · {gender === "female" ? "女" : "男"} · 装备 {equipmentSetNumber}</span>
         </summary>
 
         <div className="builder-control-head">
           <b>显示设置</b>
           <div className="builder-button-row">
             <button type="button" className="ghost-btn small-btn" onClick={randomizePreview}>
-              随机
+              随机外观和装备
             </button>
           </div>
         </div>
