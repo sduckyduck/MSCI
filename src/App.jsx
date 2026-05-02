@@ -392,10 +392,17 @@ function App() {
 
     try {
       setIsSaving(true);
+      document.body.classList.add("exporting-png");
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
       const canvas = await html2canvas(target, {
         backgroundColor: "#eef6ef",
         scale: Math.min(window.devicePixelRatio || 2, 3),
         useCORS: true,
+        ignoreElements: (element) =>
+          element.classList?.contains("character-builder-controls") ||
+          element.dataset?.exportHidden === "true" ||
+          element.dataset?.html2canvasIgnore === "true",
       });
 
       const fileName = `MSCI-${secondResults[0]?.code || "result"}.png`;
@@ -415,6 +422,7 @@ function App() {
 
       downloadImage(blob, fileName);
     } finally {
+      document.body.classList.remove("exporting-png");
       setIsSaving(false);
     }
   }
