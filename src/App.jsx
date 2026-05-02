@@ -46,7 +46,6 @@ function QuestionCard({ question, value, onChange, index }) {
             onClick={() => onChange(question.id, answer.value)}
           >
             <span>{answer.label}</span>
-            <b>{answer.value > 0 ? `+${answer.value}` : answer.value}</b>
           </button>
         ))}
       </div>
@@ -98,6 +97,15 @@ function RankingTable({ results }) {
           <span className="rank-score">{result.matchPercent}%</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function WaitingForAnswers({ missing }) {
+  return (
+    <div className="waiting-card">
+      <b>完成所有题目后显示结果</b>
+      <p>还剩 {missing} 题。为了避免提前剧透职业倾向，排行榜和二转入口会在答完后出现。</p>
     </div>
   );
 }
@@ -167,6 +175,8 @@ function App() {
 
   const firstMissing = getMissingQuestionCount(firstJobQuestions, firstResponses);
   const secondMissing = getMissingQuestionCount(secondQuestions, secondResponses);
+  const isFirstComplete = firstMissing === 0;
+  const isSecondComplete = secondMissing === 0;
   const confidence = getConfidence(firstResults);
 
   function updateFirstAnswer(questionId, value) {
@@ -178,6 +188,7 @@ function App() {
   }
 
   function continueToSecond() {
+    if (!isFirstComplete) return;
     setLockedFirstJob(firstResults[0]?.id || "warrior");
     setSecondResponses({});
     setStage("second");
@@ -231,14 +242,16 @@ function App() {
             <h2>第一阶段：一转倾向</h2>
             <p>回答所有题目后，系统会锁定最匹配的一转职业，再进入二转分支测试。</p>
             <CompletionBadge missing={firstMissing} total={firstJobQuestions.length} />
-            <RankingTable results={firstResults} />
-            <button
-              className="primary-btn"
-              disabled={firstMissing > 0}
-              onClick={continueToSecond}
-            >
-              进入二转测试
-            </button>
+            {isFirstComplete ? (
+              <>
+                <RankingTable results={firstResults} />
+                <button className="primary-btn" onClick={continueToSecond}>
+                  进入二转测试
+                </button>
+              </>
+            ) : (
+              <WaitingForAnswers missing={firstMissing} />
+            )}
           </aside>
           <div className="question-list">
             {firstJobQuestions.map((question, index) => (
@@ -250,7 +263,7 @@ function App() {
                 onChange={updateFirstAnswer}
               />
             ))}
-            <DimensionBars scores={firstScores} dimensions={firstJobDimensions} />
+            {isFirstComplete && <DimensionBars scores={firstScores} dimensions={firstJobDimensions} />}
           </div>
         </section>
       )}
@@ -262,14 +275,14 @@ function App() {
             <h2>{firstJobProfiles[selectedFirstJob]?.name}</h2>
             <p>{firstJobProfiles[selectedFirstJob]?.description}</p>
             <CompletionBadge missing={secondMissing} total={secondQuestions.length} />
-            <RankingTable results={secondResults} />
-            <button
-              className="primary-btn"
-              disabled={secondMissing > 0}
-              onClick={() => setStage("result")}
-            >
-              查看最终结果
-            </button>
+            {isSecondComplete ? (
+              <>
+                <RankingTable results={secondResults} />
+                <button className="primary-btn" onClick={() => setStage("result")}>查看最终结果</button>
+              </>
+            ) : (
+              <WaitingForAnswers missing={secondMissing} />
+            )}
             <button className="ghost-btn" onClick={() => setStage("first")}>返回一转题目</button>
           </aside>
           <div className="question-list">
@@ -282,7 +295,7 @@ function App() {
                 onChange={updateSecondAnswer}
               />
             ))}
-            <DimensionBars scores={secondScores} dimensions={secondDimensions} />
+            {isSecondComplete && <DimensionBars scores={secondScores} dimensions={secondDimensions} />}
           </div>
         </section>
       )}
