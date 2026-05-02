@@ -5,6 +5,7 @@ import "./styles.css";
 import "./compact-text.css";
 import "./character-builder.css";
 import "./premium-light.css";
+import "./export-stable-preview.css";
 import "./msio-safe-action-fix.js";
 import "./msci-class-visual-fix.js";
 import "./safe-result-export.js";
