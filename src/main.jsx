@@ -5,7 +5,6 @@ import "./styles.css";
 import "./compact-text.css";
 import "./character-builder.css";
 import "./premium-light.css";
-import "./msio-emote-url-fix.js";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
