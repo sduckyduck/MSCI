@@ -6,6 +6,6 @@ import "./compact-text.css";
 import "./character-builder.css";
 import "./premium-light.css";
 import "./export-stable-preview.css";
-import "./intro-layout-cleanup.js";
+import "./intro-layout.css";
 
 createRoot(document.getElementById("root")).render(<App />);
