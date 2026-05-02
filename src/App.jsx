@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
+import CharacterBuilder from "./CharacterBuilder";
 import {
   answerScale,
   firstJobDimensions,
@@ -32,11 +33,6 @@ function scrollPageToTop() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   document.documentElement.scrollTop = 0;
   document.body.scrollTop = 0;
-}
-
-function getPersonalityImageSrc(profile) {
-  const code = profile?.code || "PLACEHOLDER";
-  return `${import.meta.env.BASE_URL}personalities/${code}.png`;
 }
 
 function CompletionBadge({ missing, total }) {
@@ -78,7 +74,7 @@ function ProgressDots({ questions, responses, currentIndex, onJump }) {
   );
 }
 
-function QuestionCard({ question, value, onChange, index, total }) {
+function QuestionCard({ question, value, onChange, index }) {
   const options = question.options || answerScale;
 
   return (
@@ -238,7 +234,6 @@ function TestWizard({
         <QuestionCard
           question={currentQuestion}
           index={currentIndex}
-          total={questions.length}
           value={currentValue}
           onChange={handleAnswer}
         />
@@ -276,31 +271,6 @@ function TestWizard({
   );
 }
 
-function PersonalityImage({ profile }) {
-  const [missing, setMissing] = useState(false);
-
-  useEffect(() => {
-    setMissing(false);
-  }, [profile?.code]);
-
-  return (
-    <div className="personality-image-frame">
-      {!missing && (
-        <img
-          src={getPersonalityImageSrc(profile)}
-          alt={`${profile?.code || "MSCI"} ${profile?.personaName || "人格图片"}`}
-          onError={() => setMissing(true)}
-        />
-      )}
-      <div className="personality-placeholder">
-        <span>{profile?.code || "MSCI"}</span>
-        <b>{profile?.personaName || "人格图片占位"}</b>
-        <small>替换图片：public/personalities/{profile?.code || "CODE"}.png</small>
-      </div>
-    </div>
-  );
-}
-
 function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond, confidence }) {
   return (
     <section className="result-hero sbti-result-card">
@@ -308,7 +278,7 @@ function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond
         <p>你的职业人格是：</p>
         <h2>{secondResult.personaName}</h2>
         <div className="result-code green-code">{secondResult.code}</div>
-        <PersonalityImage profile={secondResult} />
+        <CharacterBuilder profile={secondResult} />
         <p className="result-slogan">{secondResult.slogan}</p>
       </div>
       <div className="result-info-panel">
