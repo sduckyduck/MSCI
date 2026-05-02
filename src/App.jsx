@@ -21,6 +21,11 @@ const stageLabels = {
   result: "结果",
 };
 
+function profileTitle(profile) {
+  if (!profile) return "—";
+  return profile.code ? `${profile.code} ${profile.personaName || profile.name}` : profile.name;
+}
+
 function CompletionBadge({ missing, total }) {
   const done = total - missing;
   return (
@@ -31,6 +36,8 @@ function CompletionBadge({ missing, total }) {
 }
 
 function QuestionCard({ question, value, onChange, index }) {
+  const options = question.options || answerScale;
+
   return (
     <article className="question-card">
       <div className="question-head">
@@ -38,7 +45,7 @@ function QuestionCard({ question, value, onChange, index }) {
         <h3>{question.text}</h3>
       </div>
       <div className="answer-row" role="radiogroup" aria-label={question.text}>
-        {answerScale.map((answer) => (
+        {options.map((answer) => (
           <button
             key={answer.value}
             type="button"
@@ -91,8 +98,10 @@ function RankingTable({ results }) {
         <div className="ranking-row" key={result.id}>
           <span className="rank-number">#{index + 1}</span>
           <div>
-            <b>{result.name}</b>
-            <small>{result.tag}</small>
+            <b>{profileTitle(result)}</b>
+            <small>
+              {result.name} / {result.tag}
+            </small>
           </div>
           <span className="rank-score">{result.matchPercent}%</span>
         </div>
@@ -115,13 +124,13 @@ function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond
     <section className="result-hero">
       <div>
         <p className="eyebrow">你的 MSCI 职业人格</p>
-        <h2>
-          {firstResult.name} - {secondResult.name}
-        </h2>
+        <div className="result-code">{secondResult.code}</div>
+        <h2>{secondResult.personaName}</h2>
         <p className="result-tag">
-          {firstResult.tag} / {secondResult.tag}
+          {firstResult.name} - {secondResult.name} / {secondResult.tag}
         </p>
-        <p>{firstResult.description}</p>
+        <p className="result-slogan">{secondResult.slogan}</p>
+        <p>{firstResult.slogan}</p>
         <p>{secondResult.description}</p>
       </div>
       <div className="score-card big">
@@ -132,9 +141,9 @@ function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond
       <div className="secondary-card">
         <b>副人格参考</b>
         <p>
-          一转副人格：{secondaryFirst?.name || "—"}
+          一转副人格：{profileTitle(secondaryFirst)}
           <br />
-          二转副人格：{secondarySecond?.name || "—"}
+          二转副人格：{profileTitle(secondarySecond)}
         </p>
         <small>{confidence.note}</small>
       </div>
@@ -216,20 +225,20 @@ function App() {
       {stage === "intro" && (
         <section className="intro-card">
           <div>
-            <p className="eyebrow">严谨一点的游戏职业测试</p>
-            <h2>不是 A=战士、B=法师，而是隐藏维度匹配职业画像。</h2>
+            <p className="eyebrow">严谨一点的抽象职业测试</p>
+            <h2>不是 A=战士、B=法师，而是隐藏维度匹配职业人格。</h2>
             <p>
               MSCI 会先测你的开荒效率、资源投入、战斗距离、操作复杂度、组队倾向和后期耐心，
-              再把你的维度向量和职业画像做匹配，最后给出一转职业、二转分支、副人格和置信度。
+              再把你的维度向量和职业画像做匹配，最后给出一转职业、二转分支、副人格和四字母人格代号。
             </p>
           </div>
           <div className="model-card">
             <b>当前版本</b>
             <ul>
-              <li>一转：战士 / 法师 / 飞侠 / 弓箭手</li>
-              <li>二转：10 个经典分支</li>
-              <li>评分：Likert 5 点量表 + 余弦相似度</li>
-              <li>输出：主职业、二转、匹配度、副人格、维度图</li>
+              <li>一转：TANK / MAGI / EDGE / ARRO</li>
+              <li>二转：SLAY / SHLD / POLE / ZAPZ / TOXI / HEAL / STAR / STAB / KITE / SNIP</li>
+              <li>评分：抽象情景题 + 隐藏维度 + 余弦相似度</li>
+              <li>输出：人格代号、职业分支、匹配度、副人格、维度图</li>
             </ul>
           </div>
           <button className="primary-btn" onClick={() => setStage("first")}>开始测试</button>
@@ -272,7 +281,8 @@ function App() {
         <section className="test-layout">
           <aside className="sticky-panel">
             <p className="eyebrow">已锁定一转</p>
-            <h2>{firstJobProfiles[selectedFirstJob]?.name}</h2>
+            <h2>{profileTitle(firstJobProfiles[selectedFirstJob])}</h2>
+            <p>{firstJobProfiles[selectedFirstJob]?.slogan}</p>
             <p>{firstJobProfiles[selectedFirstJob]?.description}</p>
             <CompletionBadge missing={secondMissing} total={secondQuestions.length} />
             {isSecondComplete ? (
