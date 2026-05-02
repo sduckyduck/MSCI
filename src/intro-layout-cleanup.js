@@ -1,4 +1,4 @@
-const INTRO_HEROES_BANNER_SRC = `${import.meta.env.BASE_URL}assets/msci-class-heroes.svg`;
+const INTRO_HEROES_BANNER_SRC = `${import.meta.env.BASE_URL}assets/msci-class-heroes.png`;
 
 function installIntroLayoutStyles() {
   if (document.getElementById("msci-intro-layout-cleanup-styles")) return;
