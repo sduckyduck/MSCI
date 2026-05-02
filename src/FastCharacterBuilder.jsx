@@ -3,14 +3,15 @@ import { useEffect, useMemo, useState } from "react";
 const MS_REGION = "GMS";
 const MS_VERSION = "83";
 const DEFAULT_ACTION = "stand1";
-const BUILD_LABEL = "FULL POOL v3";
-const DATA_CACHE_BUSTER = "full-pool-v3-20260502";
+const BUILD_LABEL = "CLASS ONLY v4";
+const DATA_CACHE_BUSTER = "class-only-v4-20260502";
 const GUIDEBOOK_DATA_BASE = "https://raw.githubusercontent.com/sduckyduck/osms-classic-guidebook/main/public/data";
 const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json?v=${DATA_CACHE_BUSTER}`;
 const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv?v=${DATA_CACHE_BUSTER}`;
 
 const VISUAL_SLOTS = new Set(["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Shield", "Weapon"]);
 const TWO_HAND_WEAPON_PREFIXES = ["140", "141", "142", "143", "144", "146"];
+const CLASS_GROUPS = ["warrior", "magician", "archer", "thief"];
 
 const SKIN_OPTIONS = [
   { id: 2000, label: "普通皮肤" },
@@ -63,16 +64,16 @@ const ROLE_RULES = {
 };
 
 const FALLBACK_EQUIPMENT = {
-  SLAY: [1002001, 1040002, 1060016, 1072001, 1082002, 1102000, 1402000],
-  SHLD: [1002001, 1040002, 1060002, 1072001, 1082002, 1102000, 1302000, 1092000],
-  POLE: [1002001, 1040002, 1060016, 1072001, 1082002, 1102000, 1432000],
-  ZAPZ: [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1372000],
-  TOXI: [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1382000],
-  HEAL: [1002019, 1050003, 1072001, 1082002, 1102000, 1032000, 1372000],
-  STAR: [1002170, 1040002, 1060043, 1072001, 1082002, 1102000, 1032000, 1472000],
-  STAB: [1002170, 1040002, 1060043, 1072001, 1082002, 1102000, 1032000, 1332000, 1092000],
-  KITE: [1002165, 1040002, 1060056, 1072001, 1082002, 1102000, 1032000, 1452000],
-  SNIP: [1002165, 1040002, 1060056, 1072001, 1082002, 1102000, 1032000, 1462000],
+  SLAY: [1002001, 1060016, 1402000],
+  SHLD: [1002001, 1060016, 1302000, 1092000],
+  POLE: [1002001, 1060016, 1432000],
+  ZAPZ: [1002019, 1050003, 1372000],
+  TOXI: [1002019, 1050003, 1382000],
+  HEAL: [1002019, 1050003, 1372000],
+  STAR: [1002170, 1060043, 1472000],
+  STAB: [1002170, 1060043, 1332000, 1092000],
+  KITE: [1002165, 1060056, 1452000],
+  SNIP: [1002165, 1060056, 1462000],
 };
 
 let equipmentDataPromise = null;
@@ -263,14 +264,30 @@ async function loadEquipmentData() {
   return equipmentDataPromise;
 }
 
-function labelSupportsClass(label, classGroup) {
+function classGroupsFromLabel(label) {
   const value = String(label || "").toLowerCase();
-  if (!value || value === "all" || value.includes("common") || value.includes("beginner")) return true;
-  if (classGroup === "warrior") return value.includes("warrior");
-  if (classGroup === "magician") return value.includes("magician") || value.includes("mage");
-  if (classGroup === "archer") return value.includes("archer") || value.includes("bowman");
-  if (classGroup === "thief") return value.includes("thief") || value.includes("rogue");
-  return false;
+  const groups = new Set();
+
+  if (value.includes("warrior") || value.includes("swordman")) groups.add("warrior");
+  if (value.includes("magician") || value.includes("mage") || value.includes("wizard")) groups.add("magician");
+  if (value.includes("archer") || value.includes("bowman")) groups.add("archer");
+  if (value.includes("thief") || value.includes("rogue")) groups.add("thief");
+
+  return groups;
+}
+
+function isUniversalClassLabel(label) {
+  const value = String(label || "").trim().toLowerCase();
+  if (!value) return true;
+  if (value === "all" || value === "common" || value === "beginner") return true;
+  if (value.includes("all classes") || value.includes("common") || value.includes("beginner")) return true;
+  return CLASS_GROUPS.every((group) => classGroupsFromLabel(value).has(group));
+}
+
+function itemIsStrictClassEquipment(item, classGroup) {
+  if (isUniversalClassLabel(item?.className)) return false;
+  const groups = classGroupsFromLabel(item?.className);
+  return groups.size === 1 && groups.has(classGroup);
 }
 
 function itemMatchesGender(item, gender) {
@@ -302,10 +319,16 @@ function itemAllowed(item, roleCode, gender) {
   const rule = ROLE_RULES[roleCode] || ROLE_RULES.SLAY;
   if (!item || !VISUAL_SLOTS.has(item.slot)) return false;
   if (!itemMatchesGender(item, gender)) return false;
-  if (!labelSupportsClass(item.className, rule.classGroup)) return false;
-  if (item.slot === "Shield") return Boolean(rule.allowShield);
-  if (item.slot !== "Weapon") return true;
-  return (rule.weaponKinds || []).some((kind) => weaponMatchesKind(item, kind));
+
+  if (item.slot === "Weapon") {
+    return (rule.weaponKinds || []).some((kind) => weaponMatchesKind(item, kind));
+  }
+
+  if (item.slot === "Shield") {
+    return Boolean(rule.allowShield) && itemIsStrictClassEquipment(item, rule.classGroup);
+  }
+
+  return itemIsStrictClassEquipment(item, rule.classGroup);
 }
 
 function randomItem(items) {
@@ -358,7 +381,7 @@ function makeRandomLoadout(equipmentData, roleCode, gender) {
   const mageWithStaff = ["ZAPZ", "TOXI", "HEAL"].includes(roleCode) && weaponText.includes("staff");
 
   const hasOverall = candidates.some((item) => item.slot === "Overall");
-  const useOverall = hasOverall && Math.random() < 0.45;
+  const useOverall = hasOverall && Math.random() < 0.55;
 
   if (rule.slots.includes("Overall") && useOverall) {
     add(chooseBySlot(candidates, "Overall", selectedIds, targetLevel));
@@ -506,7 +529,7 @@ function FastCharacterBuilder({ profile }) {
         <summary className="builder-summary">
           <b>角色预览</b>
           <span>
-            {preset.label} · {gender === "female" ? "女" : "男"} · {equipmentData ? `${poolCount} 件可随机` : "装备池加载中"} · {BUILD_LABEL}
+            {preset.label} · {gender === "female" ? "女" : "男"} · {equipmentData ? `${poolCount} 件职业专属可随机` : "职业装备池加载中"} · {BUILD_LABEL}
           </span>
         </summary>
 
@@ -514,7 +537,7 @@ function FastCharacterBuilder({ profile }) {
           <b>显示设置</b>
           <div className="builder-button-row">
             <button type="button" className="ghost-btn small-btn" onClick={randomizePreview}>
-              随机外观和装备
+              随机职业专属装备
             </button>
           </div>
         </div>
@@ -530,7 +553,7 @@ function FastCharacterBuilder({ profile }) {
           </label>
         </div>
 
-        {loadError && <p className="builder-note">装备池加载失败，当前使用 fallback：{loadError}</p>}
+        {loadError && <p className="builder-note">装备池加载失败，当前使用职业 fallback：{loadError}</p>}
       </details>
     </div>
   );
