@@ -12,6 +12,7 @@ import "./archer-weapon-action-fix.js";
 import "./mage-weapon-shield-fix.js";
 import "./final-preview-action-guard.js";
 import "./equipment-set-randomizer.js";
+import "./intro-layout-cleanup.js";
 import "./simplify-random-button.js";
 import "./safe-result-export.js";
 
