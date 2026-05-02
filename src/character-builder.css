@@ -1,0 +1,450 @@
+.character-builder {
+  display: grid;
+  gap: 14px;
+  margin: 14px auto 16px;
+}
+
+.character-preview-card {
+  width: min(380px, 100%);
+  margin: 0 auto;
+  padding: 12px;
+  border: 3px solid #c7a269;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #fff9e6, #ead7a7);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 6px 0 rgba(99, 68, 31, 0.12);
+}
+
+.character-preview-bg {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #dcebed, #b9d1c9);
+}
+
+.character-preview-bg[data-role="TOXI"] { background: linear-gradient(180deg, #8fb98a, #648f61); }
+.character-preview-bg[data-role="ZAPZ"] { background: linear-gradient(180deg, #74b5dd, #477fa8); }
+.character-preview-bg[data-role="HEAL"] { background: linear-gradient(180deg, #d9f0dd, #b7d8c0); }
+.character-preview-bg[data-role="STAR"] { background: linear-gradient(180deg, #7467b8, #433764); }
+.character-preview-bg[data-role="STAB"] { background: linear-gradient(180deg, #6c5878, #3c2e48); }
+.character-preview-bg[data-role="KITE"] { background: linear-gradient(180deg, #91b978, #668b59); }
+.character-preview-bg[data-role="SNIP"] { background: linear-gradient(180deg, #8bb8b5, #5f8584); }
+.character-preview-bg[data-role="SLAY"] { background: linear-gradient(180deg, #b98673, #8a5143); }
+.character-preview-bg[data-role="SHLD"] { background: linear-gradient(180deg, #88a9c8, #5f7e9c); }
+.character-preview-bg[data-role="POLE"] { background: linear-gradient(180deg, #9aa39a, #6e786f); }
+
+.character-asset-stage,
+.fallback-character {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.builder-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.layer-body { z-index: 1; }
+.layer-face { z-index: 3; }
+.layer-expression { z-index: 4; }
+.layer-hair { z-index: 5; }
+.layer-nx { z-index: 6; }
+.layer-weapon { z-index: 7; }
+.layer-accessory { z-index: 8; }
+
+.fallback-character {
+  --skin: #ffe0b6;
+  --skin-shadow: #e7ae7f;
+  --outline: #1e1713;
+  --hair: #111113;
+  --hair-light: #3d3d43;
+  --outfit-color: #557b3d;
+  transform: translateY(4px);
+}
+
+.fallback-character * {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+}
+
+.fallback-shadow {
+  left: 37%;
+  bottom: 16%;
+  width: 28%;
+  height: 4%;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.fallback-body {
+  left: 41%;
+  top: 48%;
+  width: 20%;
+  height: 27%;
+  border: 5px solid var(--outline);
+  border-radius: 12px 12px 10px 10px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--outfit-color), white 18%), var(--outfit-color));
+  box-shadow:
+    -13px 29px 0 -8px var(--outline),
+    13px 29px 0 -8px var(--outline),
+    -10px 31px 0 -9px #2a211c,
+    10px 31px 0 -9px #2a211c,
+    inset 0 8px 0 rgba(255, 255, 255, 0.18);
+}
+
+.fallback-neck {
+  left: 47%;
+  top: 43%;
+  width: 8%;
+  height: 10%;
+  border: 4px solid var(--outline);
+  background: var(--skin);
+  z-index: 2;
+}
+
+.fallback-head {
+  left: 34%;
+  top: 20%;
+  width: 34%;
+  height: 33%;
+  border: 5px solid var(--outline);
+  border-radius: 48% 48% 44% 44%;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.45), transparent 38%),
+    linear-gradient(180deg, var(--skin), var(--skin-shadow));
+  z-index: 3;
+}
+
+.fallback-hair {
+  left: 32%;
+  top: 17%;
+  width: 38%;
+  height: 21%;
+  border: 5px solid var(--outline);
+  border-bottom: 0;
+  border-radius: 50% 50% 20% 20%;
+  background: linear-gradient(135deg, var(--hair-light), var(--hair) 55%);
+  z-index: 5;
+}
+
+.fallback-hair::before,
+.fallback-hair::after {
+  content: "";
+  position: absolute;
+  background: var(--hair);
+  border: 4px solid var(--outline);
+  z-index: -1;
+}
+
+.fallback-character[data-hair="side-bangs"] .fallback-hair::before {
+  left: 16%;
+  top: 58%;
+  width: 20%;
+  height: 42%;
+  border-radius: 0 0 70% 30%;
+  transform: rotate(18deg);
+}
+
+.fallback-character[data-hair="twin-buns"] .fallback-hair::before,
+.fallback-character[data-hair="twin-buns"] .fallback-hair::after {
+  top: 25%;
+  width: 24%;
+  height: 48%;
+  border-radius: 50%;
+}
+
+.fallback-character[data-hair="twin-buns"] .fallback-hair::before { left: -24%; }
+.fallback-character[data-hair="twin-buns"] .fallback-hair::after { right: -24%; }
+
+.fallback-character[data-hair="long-black"] .fallback-hair {
+  height: 33%;
+  border-radius: 48% 48% 36% 36%;
+}
+
+.fallback-eye {
+  top: 36%;
+  width: 6%;
+  height: 9%;
+  border: 3px solid var(--outline);
+  border-radius: 45%;
+  background: radial-gradient(circle at 62% 25%, white 0 14%, #222935 16% 100%);
+  z-index: 6;
+}
+
+.fallback-eye-left { left: 41%; }
+.fallback-eye-right { right: 39%; }
+
+.fallback-mouth {
+  left: 49%;
+  top: 46%;
+  width: 5%;
+  height: 3px;
+  background: var(--outline);
+  z-index: 6;
+}
+
+.fallback-character[data-expression="smile"] .fallback-mouth {
+  height: 4px;
+  border-radius: 0 0 999px 999px;
+  background: transparent;
+  border-bottom: 3px solid var(--outline);
+}
+
+.fallback-character[data-expression="angry"] .fallback-eye {
+  transform: skewX(-12deg);
+}
+
+.fallback-cape {
+  left: 57%;
+  top: 50%;
+  width: 17%;
+  height: 30%;
+  border: 5px solid var(--outline);
+  border-radius: 10px 10px 50% 16px;
+  background: color-mix(in srgb, var(--outfit-color), #1d1430 38%);
+  transform: skewY(10deg);
+  z-index: 0;
+}
+
+.fallback-weapon {
+  left: 23%;
+  top: 52%;
+  width: 43%;
+  height: 7px;
+  border: 3px solid var(--outline);
+  border-radius: 999px;
+  background: #d8c396;
+  transform: rotate(-30deg);
+  transform-origin: right center;
+  z-index: 1;
+}
+
+.fallback-character[data-weapon="staff"] .fallback-weapon {
+  left: 28%;
+  top: 43%;
+  height: 9px;
+  width: 38%;
+  background: #80502c;
+  transform: rotate(-72deg);
+}
+
+.fallback-character[data-weapon="dagger"] .fallback-weapon {
+  left: 25%;
+  top: 63%;
+  width: 26%;
+  height: 10px;
+  background: linear-gradient(90deg, #eeeeee, #8c8c8c);
+  transform: rotate(-28deg);
+}
+
+.fallback-character[data-weapon="throwing-star"] .fallback-weapon {
+  left: 24%;
+  top: 42%;
+  width: 20%;
+  height: 20%;
+  border: 4px solid var(--outline);
+  background: conic-gradient(from 45deg, #e8e8e8, #777, #e8e8e8, #777, #e8e8e8);
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 56%, 79% 93%, 50% 70%, 21% 93%, 32% 56%, 2% 35%, 39% 35%);
+  transform: none;
+}
+
+.fallback-character[data-weapon="sword"] .fallback-weapon {
+  left: 19%;
+  top: 60%;
+  width: 46%;
+  height: 10px;
+  background: linear-gradient(90deg, #eeeeee, #9b9b9b);
+  transform: rotate(-33deg);
+}
+
+.fallback-character[data-weapon="spear"] .fallback-weapon {
+  left: 22%;
+  top: 48%;
+  width: 54%;
+  height: 8px;
+  background: linear-gradient(90deg, #b77a35, #eeeeee 82%);
+  transform: rotate(-28deg);
+}
+
+.fallback-character[data-weapon="bow"] .fallback-weapon,
+.fallback-character[data-weapon="crossbow"] .fallback-weapon {
+  left: 21%;
+  top: 48%;
+  width: 34%;
+  height: 31%;
+  border: 5px solid var(--outline);
+  border-left-color: #8a5a2e;
+  border-right-color: transparent;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  background: transparent;
+  transform: rotate(16deg);
+}
+
+.fallback-accessory {
+  left: 32%;
+  top: 16%;
+  width: 38%;
+  height: 14%;
+  z-index: 8;
+}
+
+.fallback-character[data-accessory="cap"] .fallback-accessory {
+  border: 5px solid var(--outline);
+  border-radius: 50% 50% 16px 16px;
+  background: color-mix(in srgb, var(--outfit-color), white 12%);
+}
+
+.fallback-character[data-accessory="hood"] .fallback-accessory {
+  left: 31%;
+  top: 15%;
+  width: 40%;
+  height: 35%;
+  border: 5px solid var(--outline);
+  border-radius: 50% 50% 32% 32%;
+  background: color-mix(in srgb, var(--outfit-color), #101010 18%);
+  z-index: 4;
+}
+
+.fallback-character[data-accessory="scarf"] .fallback-accessory {
+  left: 37%;
+  top: 47%;
+  width: 28%;
+  height: 10%;
+  border: 5px solid var(--outline);
+  border-radius: 999px;
+  background: #563c82;
+}
+
+.fallback-character[data-accessory="wizard-hat"] .fallback-accessory {
+  left: 28%;
+  top: 4%;
+  width: 48%;
+  height: 28%;
+  border: 5px solid var(--outline);
+  border-radius: 50% 50% 16% 16%;
+  background: #58378b;
+  transform: skewX(-8deg);
+}
+
+.fallback-character[data-accessory="halo"] .fallback-accessory {
+  left: 39%;
+  top: 10%;
+  width: 24%;
+  height: 8%;
+  border: 4px solid #f4d77b;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.fallback-prop {
+  right: 26%;
+  top: 56%;
+  width: 10%;
+  height: 15%;
+  border: 4px solid var(--outline);
+  border-radius: 8px 8px 12px 12px;
+  background: linear-gradient(180deg, #e9d5a1 0 22%, color-mix(in srgb, var(--outfit-color), white 20%) 24% 100%);
+  z-index: 7;
+}
+
+.character-builder-controls {
+  display: grid;
+  gap: 12px;
+  width: min(520px, 100%);
+  margin: 0 auto;
+  padding: 14px;
+  border: 2px solid #c7a269;
+  border-radius: 18px;
+  background: rgba(255, 248, 222, 0.82);
+  text-align: left;
+}
+
+.builder-control-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.builder-control-head b {
+  color: #3f2819;
+}
+
+.builder-button-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.small-btn {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.builder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.builder-field {
+  display: grid;
+  gap: 5px;
+}
+
+.builder-field span {
+  color: #7b6650;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.builder-field select {
+  width: 100%;
+  padding: 9px 10px;
+  border: 2px solid #c7a269;
+  border-radius: 12px;
+  background: #fff8df;
+  color: #352417;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.builder-note {
+  margin: 0;
+  color: #7b6650;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 760px) {
+  .character-preview-card {
+    width: min(320px, 100%);
+  }
+
+  .builder-control-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .builder-button-row {
+    justify-content: flex-start;
+  }
+
+  .builder-grid {
+    grid-template-columns: 1fr;
+  }
+}
