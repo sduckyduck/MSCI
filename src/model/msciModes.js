@@ -2,12 +2,7 @@ import * as base from "./msciModel";
 
 const GLOBAL_BANNER = "/assets/msci-class-heroes.png";
 const CHINA_BANNER_CANDIDATES = [
-  "/assets/msci-class-heroes-cn.png",
-  "/assets/msci-class-heroes-china.png",
-  "/assets/msci-class-heroes-pirate.png",
-  "/assets/msci-class-heroes-5jobs.png",
-  "/assets/msci-class-heroes-5classes.png",
-  "/assets/msci-class-heroes-5.png",
+  "/assets/team-figure.png",
   GLOBAL_BANNER,
 ];
 
