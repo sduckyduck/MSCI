@@ -3,9 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 const MS_REGION = "GMS";
 const MS_VERSION = "83";
 const DEFAULT_ACTION = "stand1";
+const BUILD_LABEL = "FULL POOL v3";
+const DATA_CACHE_BUSTER = "full-pool-v3-20260502";
 const GUIDEBOOK_DATA_BASE = "https://raw.githubusercontent.com/sduckyduck/osms-classic-guidebook/main/public/data";
-const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json`;
-const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv`;
+const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json?v=${DATA_CACHE_BUSTER}`;
+const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv?v=${DATA_CACHE_BUSTER}`;
 
 const VISUAL_SLOTS = new Set(["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Shield", "Weapon"]);
 const TWO_HAND_WEAPON_PREFIXES = ["140", "141", "142", "143", "144", "146"];
@@ -234,11 +236,11 @@ async function loadEquipmentData() {
 
   if (!equipmentDataPromise) {
     equipmentDataPromise = Promise.all([
-      fetch(GUIDEBOOK_ITEMS_URL, { cache: "force-cache" }).then((res) => {
+      fetch(GUIDEBOOK_ITEMS_URL, { cache: "no-store" }).then((res) => {
         if (!res.ok) throw new Error(`items.json HTTP ${res.status}`);
         return res.json();
       }),
-      fetch(GUIDEBOOK_MSIO_MAP_URL, { cache: "force-cache" }).then((res) => {
+      fetch(GUIDEBOOK_MSIO_MAP_URL, { cache: "no-store" }).then((res) => {
         if (!res.ok) throw new Error(`character_item_id_map.csv HTTP ${res.status}`);
         return res.text();
       }),
@@ -504,7 +506,7 @@ function FastCharacterBuilder({ profile }) {
         <summary className="builder-summary">
           <b>角色预览</b>
           <span>
-            {preset.label} · {gender === "female" ? "女" : "男"} · {equipmentData ? `${poolCount} 件可随机` : "装备池加载中"}
+            {preset.label} · {gender === "female" ? "女" : "男"} · {equipmentData ? `${poolCount} 件可随机` : "装备池加载中"} · {BUILD_LABEL}
           </span>
         </summary>
 
