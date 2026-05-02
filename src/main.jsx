@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import "./styles.css";
 import "./compact-text.css";
+import "./character-builder.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
