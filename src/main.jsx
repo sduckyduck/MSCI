@@ -9,6 +9,7 @@ import "./export-stable-preview.css";
 import "./msio-safe-action-fix.js";
 import "./msci-class-visual-fix.js";
 import "./archer-weapon-action-fix.js";
+import "./mage-weapon-shield-fix.js";
 import "./simplify-random-button.js";
 import "./safe-result-export.js";
 
