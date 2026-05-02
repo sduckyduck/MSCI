@@ -197,6 +197,17 @@ function TestWizard({
 }) {
   const currentQuestion = questions[currentIndex] || questions[0];
   const currentValue = currentQuestion ? responses[currentQuestion.id] : undefined;
+  const completePreviewRef = useRef(null);
+
+  useEffect(() => {
+    if (!isComplete || !completePreviewRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      completePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 260);
+
+    return () => window.clearTimeout(timer);
+  }, [isComplete]);
 
   function handleAnswer(questionId, value) {
     onAnswer(questionId, value);
@@ -252,7 +263,11 @@ function TestWizard({
         </button>
       </div>
 
-      {isComplete && completePreview}
+      {isComplete && (
+        <div ref={completePreviewRef} className="completion-anchor">
+          {completePreview}
+        </div>
+      )}
 
       {isComplete && (
         <CollapsibleDimensions title={`${title}隐藏维度`} scores={scores} dimensions={dimensions} />
