@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
-import CharacterBuilder from "./CharacterBuilder";
+import CharacterBuilder from "./FastCharacterBuilder";
 import {
   answerScale,
   firstJobDimensions,
