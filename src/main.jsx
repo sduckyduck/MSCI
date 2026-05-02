@@ -5,6 +5,8 @@ import "./styles.css";
 import "./compact-text.css";
 import "./character-builder.css";
 import "./premium-light.css";
+import "./msio-safe-action-fix.js";
+import "./safe-result-export.js";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
