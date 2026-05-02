@@ -8,6 +8,7 @@ import "./premium-light.css";
 import "./export-stable-preview.css";
 import "./msio-safe-action-fix.js";
 import "./msci-class-visual-fix.js";
+import "./simplify-random-button.js";
 import "./safe-result-export.js";
 
 createRoot(document.getElementById("root")).render(
