@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import html2canvas from "html2canvas";
 import {
   answerScale,
   firstJobDimensions,
@@ -151,11 +152,27 @@ function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond
   );
 }
 
+function BottomCta({ title, subtitle, buttonLabel, onClick }) {
+  return (
+    <div className="bottom-cta" role="region" aria-label={title}>
+      <div>
+        <b>{title}</b>
+        <span>{subtitle}</span>
+      </div>
+      <button type="button" className="primary-btn" onClick={onClick}>
+        {buttonLabel}
+      </button>
+    </div>
+  );
+}
+
 function App() {
   const [stage, setStage] = useState("intro");
   const [firstResponses, setFirstResponses] = useState({});
   const [secondResponses, setSecondResponses] = useState({});
   const [lockedFirstJob, setLockedFirstJob] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const resultCaptureRef = useRef(null);
 
   const firstScores = useMemo(
     () => scoreQuestions(firstJobQuestions, firstResponses, firstJobDimensions),
@@ -204,12 +221,42 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function showFinalResult() {
+    if (!isSecondComplete) return;
+    setStage("result");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function restart() {
     setStage("intro");
     setFirstResponses({});
     setSecondResponses({});
     setLockedFirstJob(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function saveResultScreenshot() {
+    const target = resultCaptureRef.current;
+    if (!target || isSaving) return;
+
+    try {
+      setIsSaving(true);
+      const canvas = await html2canvas(target, {
+        backgroundColor: "#f4dfb7",
+        scale: Math.min(window.devicePixelRatio || 2, 3),
+        useCORS: true,
+      });
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `MSCI-${secondResults[0]?.code || "result"}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -246,88 +293,110 @@ function App() {
       )}
 
       {stage === "first" && (
-        <section className="test-layout">
-          <aside className="sticky-panel">
-            <h2>第一阶段：一转倾向</h2>
-            <p>回答所有题目后，系统会锁定最匹配的一转职业，再进入二转分支测试。</p>
-            <CompletionBadge missing={firstMissing} total={firstJobQuestions.length} />
-            {isFirstComplete ? (
-              <>
-                <RankingTable results={firstResults} />
-                <button className="primary-btn" onClick={continueToSecond}>
-                  进入二转测试
-                </button>
-              </>
-            ) : (
-              <WaitingForAnswers missing={firstMissing} />
-            )}
-          </aside>
-          <div className="question-list">
-            {firstJobQuestions.map((question, index) => (
-              <QuestionCard
-                key={question.id}
-                question={question}
-                index={index}
-                value={firstResponses[question.id]}
-                onChange={updateFirstAnswer}
-              />
-            ))}
-            {isFirstComplete && <DimensionBars scores={firstScores} dimensions={firstJobDimensions} />}
-          </div>
-        </section>
+        <>
+          <section className="test-layout">
+            <aside className="sticky-panel">
+              <h2>第一阶段：一转倾向</h2>
+              <p>回答所有题目后，系统会锁定最匹配的一转职业，再进入二转分支测试。</p>
+              <CompletionBadge missing={firstMissing} total={firstJobQuestions.length} />
+              {isFirstComplete ? (
+                <>
+                  <RankingTable results={firstResults} />
+                  <button className="primary-btn" onClick={continueToSecond}>
+                    进入二转测试
+                  </button>
+                </>
+              ) : (
+                <WaitingForAnswers missing={firstMissing} />
+              )}
+            </aside>
+            <div className="question-list">
+              {firstJobQuestions.map((question, index) => (
+                <QuestionCard
+                  key={question.id}
+                  question={question}
+                  index={index}
+                  value={firstResponses[question.id]}
+                  onChange={updateFirstAnswer}
+                />
+              ))}
+              {isFirstComplete && <DimensionBars scores={firstScores} dimensions={firstJobDimensions} />}
+            </div>
+          </section>
+          {isFirstComplete && (
+            <BottomCta
+              title="一转结果已生成"
+              subtitle={`你的一转人格：${profileTitle(firstResults[0])}`}
+              buttonLabel="进入二转测试"
+              onClick={continueToSecond}
+            />
+          )}
+        </>
       )}
 
       {stage === "second" && (
-        <section className="test-layout">
-          <aside className="sticky-panel">
-            <p className="eyebrow">已锁定一转</p>
-            <h2>{profileTitle(firstJobProfiles[selectedFirstJob])}</h2>
-            <p>{firstJobProfiles[selectedFirstJob]?.slogan}</p>
-            <p>{firstJobProfiles[selectedFirstJob]?.description}</p>
-            <CompletionBadge missing={secondMissing} total={secondQuestions.length} />
-            {isSecondComplete ? (
-              <>
-                <RankingTable results={secondResults} />
-                <button className="primary-btn" onClick={() => setStage("result")}>查看最终结果</button>
-              </>
-            ) : (
-              <WaitingForAnswers missing={secondMissing} />
-            )}
-            <button className="ghost-btn" onClick={() => setStage("first")}>返回一转题目</button>
-          </aside>
-          <div className="question-list">
-            {secondQuestions.map((question, index) => (
-              <QuestionCard
-                key={question.id}
-                question={question}
-                index={index}
-                value={secondResponses[question.id]}
-                onChange={updateSecondAnswer}
-              />
-            ))}
-            {isSecondComplete && <DimensionBars scores={secondScores} dimensions={secondDimensions} />}
-          </div>
-        </section>
+        <>
+          <section className="test-layout">
+            <aside className="sticky-panel">
+              <p className="eyebrow">已锁定一转</p>
+              <h2>{profileTitle(firstJobProfiles[selectedFirstJob])}</h2>
+              <p>{firstJobProfiles[selectedFirstJob]?.slogan}</p>
+              <p>{firstJobProfiles[selectedFirstJob]?.description}</p>
+              <CompletionBadge missing={secondMissing} total={secondQuestions.length} />
+              {isSecondComplete ? (
+                <>
+                  <RankingTable results={secondResults} />
+                  <button className="primary-btn" onClick={showFinalResult}>查看最终结果</button>
+                </>
+              ) : (
+                <WaitingForAnswers missing={secondMissing} />
+              )}
+              <button className="ghost-btn" onClick={() => setStage("first")}>返回一转题目</button>
+            </aside>
+            <div className="question-list">
+              {secondQuestions.map((question, index) => (
+                <QuestionCard
+                  key={question.id}
+                  question={question}
+                  index={index}
+                  value={secondResponses[question.id]}
+                  onChange={updateSecondAnswer}
+                />
+              ))}
+              {isSecondComplete && <DimensionBars scores={secondScores} dimensions={secondDimensions} />}
+            </div>
+          </section>
+          {isSecondComplete && (
+            <BottomCta
+              title="二转结果已生成"
+              subtitle={`你的二转人格：${profileTitle(secondResults[0])}`}
+              buttonLabel="查看最终结果"
+              onClick={showFinalResult}
+            />
+          )}
+        </>
       )}
 
       {stage === "result" && (
         <section className="result-page">
-          <ResultHero
-            firstResult={firstResults[0]}
-            secondResult={secondResults[0]}
-            secondaryFirst={firstResults[1]}
-            secondarySecond={secondResults[1]}
-            confidence={confidence}
-          />
-          <div className="result-grid">
-            <section className="panel">
-              <h3>一转排名</h3>
-              <RankingTable results={firstResults} />
-            </section>
-            <section className="panel">
-              <h3>二转排名</h3>
-              <RankingTable results={secondResults} />
-            </section>
+          <div ref={resultCaptureRef} className="result-capture-card">
+            <ResultHero
+              firstResult={firstResults[0]}
+              secondResult={secondResults[0]}
+              secondaryFirst={firstResults[1]}
+              secondarySecond={secondResults[1]}
+              confidence={confidence}
+            />
+            <div className="result-grid">
+              <section className="panel">
+                <h3>一转排名</h3>
+                <RankingTable results={firstResults} />
+              </section>
+              <section className="panel">
+                <h3>二转排名</h3>
+                <RankingTable results={secondResults} />
+              </section>
+            </div>
           </div>
           <section className="panel">
             <h3>一转隐藏维度</h3>
@@ -338,6 +407,9 @@ function App() {
             <DimensionBars scores={secondScores} dimensions={secondDimensions} />
           </section>
           <div className="action-row">
+            <button className="primary-btn" onClick={saveResultScreenshot} disabled={isSaving}>
+              {isSaving ? "正在生成截图..." : "保存结果截图"}
+            </button>
             <button className="primary-btn" onClick={restart}>重新测试</button>
             <button className="ghost-btn" onClick={() => setStage("second")}>调整二转答案</button>
           </div>
