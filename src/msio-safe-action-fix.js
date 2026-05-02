@@ -1,18 +1,9 @@
 const LEGACY_CHARACTER_MARKER = "maplestory.io/api/GMS/83/Character/";
 
-const ROLE_ACTIONS = {
-  SLAY: "swingT1",
-  SHLD: "swingO1",
-  POLE: "swingP1",
-  ZAPZ: "swingO1",
-  TOXI: "swingO1",
-  HEAL: "swingO1",
-  STAR: "shoot1",
-  STAB: "stabO1",
-  KITE: "shoot1",
-  SNIP: "shoot2",
-};
-
+// MSCI character preview should stay in standing poses only:
+// - stand1 for one-handed weapons
+// - stand2 for two-handed weapons
+// Do not use swing / shoot / stab actions here.
 const ROLE_DEFAULT_BODY_ITEMS = {
   ZAPZ: "1050003",
   TOXI: "1050003",
@@ -34,6 +25,8 @@ const ROLE_DEFAULT_WEAPON_ITEMS = {
 
 const BODY_PREFIXES = ["104", "105", "106"];
 const WEAPON_PREFIXES = ["130", "131", "132", "133", "137", "138", "140", "141", "142", "143", "144", "145", "146", "147"];
+const ONE_HANDED_WEAPON_PREFIXES = ["130", "131", "132", "133", "137", "147"];
+const TWO_HANDED_WEAPON_PREFIXES = ["138", "140", "141", "142", "143", "144", "145", "146"];
 
 function getRoleCodeFromSrc(src) {
   try {
@@ -47,10 +40,6 @@ function getRoleCodeFromSrc(src) {
 
 function getRoleCodeForImage(img) {
   return img?.closest?.(".character-preview-bg")?.getAttribute?.("data-role") || getRoleCodeFromSrc(img?.src) || "";
-}
-
-function getSafeActionForImage(img) {
-  return ROLE_ACTIONS[getRoleCodeForImage(img)] || "stand1";
 }
 
 function normalizeLegacySeparators(src) {
@@ -71,9 +60,21 @@ function hasExactItem(items, itemId) {
   return items.some((entry) => getItemId(entry) === String(itemId));
 }
 
+function getWeaponId(items) {
+  return items
+    .map(getItemId)
+    .find((id) => WEAPON_PREFIXES.some((prefix) => id.startsWith(prefix))) || "";
+}
+
+function getStandingActionForItems(items) {
+  const weaponId = getWeaponId(items);
+  if (TWO_HANDED_WEAPON_PREFIXES.some((prefix) => weaponId.startsWith(prefix))) return "stand2";
+  return "stand1";
+}
+
 function addMissingLoadoutItems(parts, characterIndex, roleCode) {
   const itemIndex = characterIndex + 2;
-  if (!parts[itemIndex]) return;
+  if (!parts[itemIndex]) return [];
 
   const items = parts[itemIndex]
     .split(",")
@@ -91,6 +92,7 @@ function addMissingLoadoutItems(parts, characterIndex, roleCode) {
   }
 
   parts[itemIndex] = items.join(",");
+  return items;
 }
 
 function applySafeAction(src, img) {
@@ -105,19 +107,17 @@ function applySafeAction(src, img) {
   }
 
   const roleCode = getRoleCodeForImage(img);
-  const action = getSafeActionForImage(img);
   const parts = decodeURIComponent(url.pathname).split("/");
   const characterIndex = parts.findIndex((part) => part === "Character");
+  let action = "stand1";
 
   if (characterIndex >= 0) {
     const actionIndex = characterIndex + 3;
     const finalFrameIndex = characterIndex + 4;
+    const items = addMissingLoadoutItems(parts, characterIndex, roleCode);
 
-    addMissingLoadoutItems(parts, characterIndex, roleCode);
-
+    action = getStandingActionForItems(items);
     if (parts[actionIndex]) parts[actionIndex] = action;
-    // Keep the final frame segment stable. Setting this to blink/smile/etc.
-    // caused MapleStory.IO to return a blank image in mobile Safari.
     if (parts[finalFrameIndex]) parts[finalFrameIndex] = "0";
   }
 
