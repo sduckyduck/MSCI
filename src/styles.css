@@ -208,6 +208,73 @@ button {
   transform: none;
 }
 
+.final-gender-question {
+  margin: 18px 0 14px;
+  padding: 16px;
+  border: 2px solid rgba(77, 51, 31, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 248, 220, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.58);
+}
+
+.final-gender-question h3 {
+  margin: 0 0 6px;
+  color: var(--wood-dark);
+  font-size: 1.12rem;
+}
+
+.final-gender-question p {
+  margin: 0 0 12px;
+}
+
+.final-gender-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.final-gender-option {
+  cursor: pointer;
+  border: 2px solid rgba(90, 62, 36, 0.24);
+  border-radius: 14px;
+  padding: 12px 10px;
+  background: rgba(255, 255, 255, 0.58);
+  color: inherit;
+  text-align: left;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.final-gender-option:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.final-gender-option.active {
+  border-color: rgba(70, 135, 74, 0.82);
+  background: rgba(222, 245, 219, 0.86);
+}
+
+.final-gender-option b,
+.final-gender-option small {
+  display: block;
+}
+
+.final-gender-option b {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.final-gender-option small {
+  color: rgba(64, 43, 26, 0.68);
+  line-height: 1.35;
+}
+
+.primary-btn.gender-required {
+  opacity: 0.58;
+  filter: grayscale(0.25);
+  cursor: not-allowed;
+}
+
 .completion-badge {
   display: inline-flex;
   align-items: center;
