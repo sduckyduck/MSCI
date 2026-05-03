@@ -1,20 +1,117 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import CharacterBuilder from "./CleanCharacterBuilder";
-import {
-  getConfidence,
-  getDimensionSummary,
-  getMissingQuestionCount,
-  matchProfiles,
-  scoreQuestions,
-} from "./model/msciModel";
 import { getModeModel, modeOptions } from "./model/msciModes";
+import {
+  jobDisplayNames,
+  msciV2Questions,
+  scoreMsciV2,
+  traitDisplayNames,
+} from "./model/msciV2QuestionBank";
 
 const stageLabels = {
   intro: "说明",
-  first: "一转测试",
-  second: "二转测试",
+  test: "职业测试",
   result: "结果",
+};
+
+const resultProfiles = {
+  fighter: {
+    code: "SLAY",
+    name: "剑客",
+    personaName: "头铁平砍王",
+    tag: "正统近战型",
+    slogan: "不绕路，不解释，见怪就上去处理。",
+    description: "你偏向正面推进、持续输出和直接解决问题。比起复杂机制，你更相信稳定成长和硬碰硬的执行力。",
+  },
+  page: {
+    code: "SHLD",
+    name: "准骑士",
+    personaName: "无敌大轮椅",
+    tag: "稳健防守型",
+    slogan: "别人追求秒怪，你追求怪打你像挠痒。",
+    description: "你更重视安全、容错和稳定节奏。你不一定最激进，但很难被局面打崩，适合走有守护感和耐心的路线。",
+  },
+  spearman: {
+    code: "POLE",
+    name: "枪战士",
+    personaName: "仰卧起坐王",
+    tag: "后期团队型",
+    slogan: "前期能忍，后期上桌；倒下不是结束，是节目效果。",
+    description: "你能接受慢热和承压，也在意后期存在感、团队位置和大场面表现。越到后面，你越想成为队伍里少不了的人。",
+  },
+  iceLightning: {
+    code: "ZAPZ",
+    name: "冰雷法师",
+    personaName: "全图立正人",
+    tag: "控场清图型",
+    slogan: "场面一乱，你一出手，全场开始懂事。",
+    description: "你喜欢效率、控场和舒服清图。你更适合用节奏把地图按住，而不是和每只怪单独讲道理。",
+  },
+  firePoison: {
+    code: "TOXI",
+    name: "火毒法师",
+    personaName: "温水煮图人",
+    tag: "机制研究型",
+    slogan: "别人看热闹，你看机制；别人打怪，你写理解。",
+    description: "你更能接受研究属性、路线和机制收益。你不怕玩法有门槛，甚至会享受把冷门逻辑玩明白的过程。",
+  },
+  cleric: {
+    code: "HEAL",
+    name: "牧师",
+    personaName: "队伍保险箱",
+    tag: "辅助兜底型",
+    slogan: "你可以不是最吵的，但你是大家最不想失去的。",
+    description: "你更看重团队价值、稳定性和照顾同伴。你适合成为队伍里的安全感来源，让别人敢冲、敢打、敢继续。",
+  },
+  assassin: {
+    code: "STAR",
+    name: "刺客",
+    personaName: "钱包发光人",
+    tag: "远程爆发型",
+    slogan: "理智在报警，审美在鼓掌，数字在发光。",
+    description: "你喜欢速度、爆发、远程安全感和帅气反馈。只要手感和排面到位，你能接受一定资源投入。",
+  },
+  bandit: {
+    code: "STAB",
+    name: "侠客",
+    personaName: "反骨近身人",
+    tag: "小众操作型",
+    slogan: "别人选标准答案，你偏要说：你不懂。",
+    description: "你偏向个性路线、近身操作和一点点邪门理解。你不一定追求最热门，但很在意玩法有没有自己的味道。",
+  },
+  hunter: {
+    code: "KITE",
+    name: "猎人",
+    personaName: "体面风筝人",
+    tag: "主流远程型",
+    slogan: "怪还在赶路，你已经把事情处理完了。",
+    description: "你喜欢远程、稳定、顺手和节奏感。你不急着硬碰硬，更愿意用距离和位置把局面处理得很体面。",
+  },
+  crossbowman: {
+    code: "SNIP",
+    name: "弩弓手",
+    personaName: "冷门一发人",
+    tag: "慢热精准型",
+    slogan: "不求满街同款，只求一发有分量。",
+    description: "你能接受慢热和冷门路线，也更喜欢精准、耐心和少数派辨识度。你不怕慢，只怕没味道。",
+  },
+  brawler: {
+    code: "BRAW",
+    name: "拳手",
+    personaName: "贴脸节奏怪",
+    tag: "近身机动型",
+    slogan: "别人还在站位，你已经贴脸开演。",
+    description: "你喜欢新鲜感、机动节奏和贴近打击反馈。你适合更主动、更灵活、更有街头感的路线。",
+  },
+  gunslinger: {
+    code: "GUNS",
+    name: "火枪手",
+    personaName: "远程火力仔",
+    tag: "远程机动型",
+    slogan: "安全距离不是怂，是输出环境。",
+    description: "你喜欢远程拉扯、火力反馈和灵活走位。你既想保持距离，也想让画面看起来有节奏、有弹道、有新鲜感。",
+  },
 };
 
 function profileTitle(profile) {
@@ -38,6 +135,10 @@ function shuffleQuestions(questions) {
   }
 
   return shuffled;
+}
+
+function getMissingQuestionCount(questions, responses) {
+  return questions.filter((question) => responses[question.id] === undefined).length;
 }
 
 function CompletionBadge({ missing, total }) {
@@ -146,75 +247,31 @@ function ProgressDots({ questions, responses, currentIndex, onJump }) {
 
 function QuestionCard({ question, value, onChange, index }) {
   const options = question.options || [];
+  const isCoreQuestion = (question.weight ?? 1) >= 1;
 
   return (
     <article className="wizard-card">
       <div className="wizard-meta">
         <span className="question-index">第 {index + 1} 题</span>
-        <span>维度已隐藏</span>
+        <span>{question.section} · {isCoreQuestion ? "核心题" : "趣味题"}</span>
       </div>
       <h2>{question.text}</h2>
       <div className="wizard-options" role="radiogroup" aria-label={question.text}>
-        {options.map((answer, optionIndex) => (
+        {options.map((answer) => (
           <button
-            key={answer.value}
+            key={answer.key}
             type="button"
-            className={`wizard-option ${value === answer.value ? "active" : ""}`}
-            onClick={() => onChange(question.id, answer.value)}
+            className={`wizard-option ${value === answer.key ? "active" : ""}`}
+            onClick={() => onChange(question.id, answer.key)}
           >
             <span className="option-radio" aria-hidden="true" />
-            <b>{String.fromCharCode(65 + optionIndex)}</b>
+            <b>{answer.key}</b>
             <span>{answer.label}</span>
           </button>
         ))}
       </div>
-      <p className="wizard-help">选择后会自动进入下一题，也可以点上方泡泡跳回任意题。</p>
+      <p className="wizard-help">前 16 题权重最高，生活抽象题会降权处理，不会压过游戏行为判断。</p>
     </article>
-  );
-}
-
-function DimensionBars({ scores, dimensions }) {
-  const rows = getDimensionSummary(scores, dimensions);
-
-  return (
-    <div className="dimension-grid">
-      {rows.map((row) => {
-        const isPositive = row.value >= 0;
-        return (
-          <div className="dimension-card" key={row.key}>
-            <div className="dimension-title">
-              <b>{row.label}</b>
-              <span>{row.value.toFixed(1)}</span>
-            </div>
-            <div className="dimension-scale">
-              <span>{row.low}</span>
-              <span>{row.high}</span>
-            </div>
-            <div className="bar-track">
-              <div
-                className={`bar-fill ${isPositive ? "positive" : "negative"}`}
-                style={{ width: `${Math.max(6, row.intensity)}%` }}
-              />
-            </div>
-            <p>当前倾向：{row.side}</p>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function CollapsibleDimensions({ title, scores, dimensions }) {
-  return (
-    <details className="collapsible-dimensions">
-      <summary>
-        <span>{title}</span>
-        <small>展开查看模型后台维度</small>
-      </summary>
-      <div className="collapsible-body">
-        <DimensionBars scores={scores} dimensions={dimensions} />
-      </div>
-    </details>
   );
 }
 
@@ -225,9 +282,9 @@ function RankingTable({ results }) {
         <div className="ranking-row" key={result.id}>
           <span className="rank-number">#{index + 1}</span>
           <div>
-            <b>{profileTitle(result)}</b>
+            <b>{resultProfiles[result.id]?.personaName || result.name}</b>
             <small>
-              {result.name} / {result.tag}
+              {jobDisplayNames[result.id] || result.name} / 原始分 {result.score}
             </small>
           </div>
           <span className="rank-score">{result.matchPercent}%</span>
@@ -237,49 +294,61 @@ function RankingTable({ results }) {
   );
 }
 
-function StageResultPreview({ title, result, subtitle, buttonLabel, onClick }) {
+function TraitRanking({ traits }) {
+  const topTraits = (traits || []).slice(0, 6);
+
   return (
-    <section className="stage-result-card">
-      <p className="eyebrow">{title}</p>
-      <h2>{profileTitle(result)}</h2>
-      <p>{subtitle}</p>
-      <button type="button" className="primary-btn" onClick={onClick}>{buttonLabel}</button>
+    <div className="ranking-table">
+      {topTraits.map((trait, index) => (
+        <div className="ranking-row" key={trait.id}>
+          <span className="rank-number">#{index + 1}</span>
+          <div>
+            <b>{traitDisplayNames[trait.id] || trait.name}</b>
+            <small>隐藏倾向分：{trait.score}</small>
+          </div>
+          <span className="rank-score">{Math.abs(Math.round(trait.score))}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ResultHero({ result, firstResult, secondResult, confidence, modeLabel }) {
+  return (
+    <section className="result-hero sbti-result-card">
+      <div className="result-image-panel">
+        <p>你的{modeLabel}职业人格是：</p>
+        <h2>{result.personaName}</h2>
+        <div className="result-code green-code">{result.code}</div>
+        <CharacterBuilder profile={result} />
+        <p className="result-slogan">{result.slogan}</p>
+      </div>
+      <div className="result-info-panel">
+        <p className="eyebrow">V2 题库结果</p>
+        <h3>{result.code}（{result.name}）</h3>
+        <p>{result.description}</p>
+        <div className="match-pill">
+          匹配度 {secondResult?.matchPercent || 50}% · 置信度 {confidence.label}
+        </div>
+        <p className="secondary-text">
+          一转锁定：{jobDisplayNames[firstResult?.id] || "—"}<br />
+          二转结果：{profileTitle(result)}<br />
+          分差：{confidence.gap}
+        </p>
+      </div>
     </section>
   );
 }
 
-function TestWizard({
-  title,
-  subtitle,
-  questions,
-  responses,
-  currentIndex,
-  setCurrentIndex,
-  onAnswer,
-  isComplete,
-  completePreview,
-  scores,
-  dimensions,
-}) {
+function TestWizard({ questions, responses, currentIndex, setCurrentIndex, onAnswer, isComplete, onShowResult }) {
   const currentQuestion = questions[currentIndex] || questions[0];
   const currentValue = currentQuestion ? responses[currentQuestion.id] : undefined;
-  const completePreviewRef = useRef(null);
-
-  useEffect(() => {
-    if (!isComplete || !completePreviewRef.current) return;
-
-    const timer = window.setTimeout(() => {
-      completePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 260);
-
-    return () => window.clearTimeout(timer);
-  }, [isComplete]);
 
   function handleAnswer(questionId, value) {
     onAnswer(questionId, value);
     const isLastQuestion = currentIndex >= questions.length - 1;
     if (!isLastQuestion) {
-      window.setTimeout(() => setCurrentIndex(currentIndex + 1), 180);
+      window.setTimeout(() => setCurrentIndex(currentIndex + 1), 160);
     }
   }
 
@@ -287,8 +356,8 @@ function TestWizard({
     <section className="wizard-shell">
       <div className="wizard-title-row">
         <div>
-          <p className="eyebrow">{title}</p>
-          <h1>{subtitle}</h1>
+          <p className="eyebrow">MSCI V2</p>
+          <h1>30 题职业人格测试</h1>
         </div>
         <CompletionBadge missing={getMissingQuestionCount(questions, responses)} total={questions.length} />
       </div>
@@ -329,40 +398,13 @@ function TestWizard({
       </div>
 
       {isComplete && (
-        <div ref={completePreviewRef} className="completion-anchor">
-          {completePreview}
-        </div>
+        <section className="stage-result-card completion-anchor">
+          <p className="eyebrow">测试完成</p>
+          <h2>职业人格已生成</h2>
+          <p>系统会先锁定一转大类，再只在对应二转分支内排名，避免结果乱跳。</p>
+          <button type="button" className="primary-btn" onClick={onShowResult}>查看最终结果</button>
+        </section>
       )}
-
-      {isComplete && (
-        <CollapsibleDimensions title={`${title}隐藏维度`} scores={scores} dimensions={dimensions} />
-      )}
-    </section>
-  );
-}
-
-function ResultHero({ firstResult, secondResult, secondaryFirst, secondarySecond, confidence, modeLabel }) {
-  return (
-    <section className="result-hero sbti-result-card">
-      <div className="result-image-panel">
-        <p>你的{modeLabel}职业人格是：</p>
-        <h2>{secondResult.personaName}</h2>
-        <div className="result-code green-code">{secondResult.code}</div>
-        <CharacterBuilder profile={secondResult} />
-        <p className="result-slogan">{secondResult.slogan}</p>
-      </div>
-      <div className="result-info-panel">
-        <p className="eyebrow">你的主类型</p>
-        <h3>{secondResult.code}（{secondResult.personaName}）</h3>
-        <p>{secondResult.description}</p>
-        <div className="match-pill">
-          匹配度 {Math.round((firstResult.matchPercent + secondResult.matchPercent) / 2)}% · 置信度 {confidence.label}
-        </div>
-        <p className="secondary-text">
-          一转副人格：{profileTitle(secondaryFirst)}<br />
-          二转副人格：{profileTitle(secondarySecond)}
-        </p>
-      </div>
     </section>
   );
 }
@@ -371,116 +413,57 @@ function App() {
   const [mode, setMode] = useState("global");
   const modeModel = useMemo(() => getModeModel(mode), [mode]);
   const [stage, setStage] = useState("intro");
-  const [firstResponses, setFirstResponses] = useState({});
-  const [secondResponses, setSecondResponses] = useState({});
-  const [lockedFirstJob, setLockedFirstJob] = useState(null);
-  const [firstQuestionOrder, setFirstQuestionOrder] = useState([]);
-  const [secondQuestionOrder, setSecondQuestionOrder] = useState([]);
-  const [firstIndex, setFirstIndex] = useState(0);
-  const [secondIndex, setSecondIndex] = useState(0);
+  const [responses, setResponses] = useState({});
+  const [questionOrder, setQuestionOrder] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const resultCaptureRef = useRef(null);
 
-  const activeFirstQuestions = firstQuestionOrder.length ? firstQuestionOrder : modeModel.firstJobQuestions;
-
-  const firstScores = useMemo(
-    () => scoreQuestions(modeModel.firstJobQuestions, firstResponses, modeModel.firstJobDimensions),
-    [modeModel, firstResponses]
-  );
-
-  const firstResults = useMemo(
-    () => matchProfiles(firstScores, modeModel.firstJobProfiles),
-    [modeModel, firstScores]
-  );
-
-  const fallbackFirstJob = Object.keys(modeModel.firstJobProfiles)[0] || "warrior";
-  const selectedFirstJob = lockedFirstJob || firstResults[0]?.id || fallbackFirstJob;
-  const rawSecondQuestions = modeModel.secondJobQuestions[selectedFirstJob] || [];
-  const secondQuestions = secondQuestionOrder.length ? secondQuestionOrder : rawSecondQuestions;
-  const secondDimensions = modeModel.secondJobDimensions[selectedFirstJob] || {};
-  const secondProfiles = modeModel.secondJobProfiles[selectedFirstJob] || {};
-
-  const secondScores = useMemo(
-    () => scoreQuestions(rawSecondQuestions, secondResponses, secondDimensions),
-    [rawSecondQuestions, secondResponses, secondDimensions]
-  );
-
-  const secondResults = useMemo(
-    () => matchProfiles(secondScores, secondProfiles),
-    [secondScores, secondProfiles]
-  );
-
-  const firstMissing = getMissingQuestionCount(modeModel.firstJobQuestions, firstResponses);
-  const secondMissing = getMissingQuestionCount(rawSecondQuestions, secondResponses);
-  const isFirstComplete = firstMissing === 0;
-  const isSecondComplete = rawSecondQuestions.length > 0 && secondMissing === 0;
-  const confidence = getConfidence(firstResults);
+  const activeQuestions = questionOrder.length ? questionOrder : msciV2Questions;
+  const scoreResult = useMemo(() => scoreMsciV2(responses, mode), [responses, mode]);
+  const missing = getMissingQuestionCount(msciV2Questions, responses);
+  const isComplete = missing === 0;
+  const finalProfile = resultProfiles[scoreResult.secondJob] || resultProfiles.fighter;
+  const firstResult = scoreResult.firstRanking[0];
+  const secondResult = scoreResult.secondRanking[0];
 
   useEffect(() => {
     requestAnimationFrame(() => {
       scrollPageToTop();
       setTimeout(scrollPageToTop, 80);
     });
-  }, [stage, selectedFirstJob]);
+  }, [stage, mode]);
 
   function resetForMode(nextMode) {
     if (nextMode === mode) return;
     setMode(nextMode);
     setStage("intro");
-    setFirstResponses({});
-    setSecondResponses({});
-    setLockedFirstJob(null);
-    setFirstQuestionOrder([]);
-    setSecondQuestionOrder([]);
-    setFirstIndex(0);
-    setSecondIndex(0);
+    setResponses({});
+    setQuestionOrder([]);
+    setCurrentIndex(0);
   }
 
-  function startFirstTest() {
-    setFirstResponses({});
-    setSecondResponses({});
-    setLockedFirstJob(null);
-    setFirstQuestionOrder(shuffleQuestions(modeModel.firstJobQuestions));
-    setSecondQuestionOrder([]);
-    setFirstIndex(0);
-    setSecondIndex(0);
-    setStage("first");
+  function startTest() {
+    setResponses({});
+    setQuestionOrder(shuffleQuestions(msciV2Questions));
+    setCurrentIndex(0);
+    setStage("test");
   }
 
-  function updateFirstAnswer(questionId, value) {
-    setFirstResponses((prev) => ({ ...prev, [questionId]: value }));
-  }
-
-  function updateSecondAnswer(questionId, value) {
-    setSecondResponses((prev) => ({ ...prev, [questionId]: value }));
-  }
-
-  function continueToSecond() {
-    if (!isFirstComplete) return;
-    const nextFirstJob = firstResults[0]?.id || fallbackFirstJob;
-    const nextSecondQuestions = modeModel.secondJobQuestions[nextFirstJob] || [];
-
-    setLockedFirstJob(nextFirstJob);
-    setSecondResponses({});
-    setSecondQuestionOrder(shuffleQuestions(nextSecondQuestions));
-    setSecondIndex(0);
-    setStage("second");
+  function updateAnswer(questionId, value) {
+    setResponses((prev) => ({ ...prev, [questionId]: value }));
   }
 
   function showFinalResult() {
-    if (!isSecondComplete || !secondResults[0]) return;
+    if (!isComplete) return;
     setStage("result");
   }
 
   function restart() {
     setStage("intro");
-    setFirstResponses({});
-    setSecondResponses({});
-    setLockedFirstJob(null);
-    setFirstQuestionOrder([]);
-    setSecondQuestionOrder([]);
-    setFirstIndex(0);
-    setSecondIndex(0);
+    setResponses({});
+    setQuestionOrder([]);
+    setCurrentIndex(0);
   }
 
   function downloadImage(blob, fileName) {
@@ -513,7 +496,7 @@ function App() {
           element.dataset?.html2canvasIgnore === "true",
       });
 
-      const fileName = `MSCI-${modeModel.id}-${secondResults[0]?.code || "result"}.png`;
+      const fileName = `MSCI-v2-${modeModel.id}-${finalProfile.code || "result"}.png`;
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) return;
 
@@ -522,7 +505,7 @@ function App() {
       if (navigator.canShare?.({ files: [file] }) && navigator.share) {
         await navigator.share({
           title: "MSCI 冒险岛职业人格测试",
-          text: `我的 MSCI ${modeModel.label}结果是 ${profileTitle(secondResults[0])}`,
+          text: `我的 MSCI ${modeModel.label}结果是 ${profileTitle(finalProfile)}`,
           files: [file],
         });
         return;
@@ -549,97 +532,58 @@ function App() {
         <section className="intro-card sbti-intro-card mode-aware-intro">
           <div>
             <IntroHeroBanner candidates={modeModel.bannerCandidates} />
-            <p className="eyebrow">MapleStory Class Indicator</p>
+            <p className="eyebrow">MapleStory Class Indicator · V2</p>
             <h1>{modeModel.title}</h1>
             <p>{modeModel.description}</p>
-            <p className="mode-note">{modeModel.note}</p>
+            <p className="mode-note">30 题 A/B/C/D/E 题库：前 16 题决定核心职业倾向，后 14 题用于补充抽象人格和传播梗感。</p>
             <ModeSelector value={mode} onChange={resetForMode} />
           </div>
-          <button className="primary-btn" onClick={startFirstTest}>开始测试</button>
+          <button className="primary-btn" onClick={startTest}>开始 V2 测试</button>
         </section>
       )}
 
-      {stage === "first" && (
+      {stage === "test" && (
         <TestWizard
-          title={`一转测试 · ${modeModel.label}`}
-          subtitle={modeModel.firstStageSubtitle}
-          questions={activeFirstQuestions}
-          responses={firstResponses}
-          currentIndex={firstIndex}
-          setCurrentIndex={setFirstIndex}
-          onAnswer={updateFirstAnswer}
-          isComplete={isFirstComplete}
-          scores={firstScores}
-          dimensions={modeModel.firstJobDimensions}
-          completePreview={(
-            <StageResultPreview
-              title="一转人格已解锁"
-              result={firstResults[0]}
-              subtitle="第一阶段完成，继续进入二转分支测试。"
-              buttonLabel="进入二转测试"
-              onClick={continueToSecond}
-            />
-          )}
+          questions={activeQuestions}
+          responses={responses}
+          currentIndex={currentIndex}
+          setCurrentIndex={setCurrentIndex}
+          onAnswer={updateAnswer}
+          isComplete={isComplete}
+          onShowResult={showFinalResult}
         />
       )}
 
-      {stage === "second" && (
-        <TestWizard
-          title={`二转测试 · ${modeModel.label}`}
-          subtitle={`已锁定：${profileTitle(modeModel.firstJobProfiles[selectedFirstJob])}`}
-          questions={secondQuestions}
-          responses={secondResponses}
-          currentIndex={secondIndex}
-          setCurrentIndex={setSecondIndex}
-          onAnswer={updateSecondAnswer}
-          isComplete={isSecondComplete}
-          scores={secondScores}
-          dimensions={secondDimensions}
-          completePreview={(
-            <StageResultPreview
-              title="二转人格已解锁"
-              result={secondResults[0]}
-              subtitle="你的最终四字母职业人格已经生成。"
-              buttonLabel="查看最终结果"
-              onClick={showFinalResult}
-            />
-          )}
-        />
-      )}
-
-      {stage === "result" && secondResults[0] && (
+      {stage === "result" && isComplete && (
         <section className="result-page sbti-result-page">
           <div ref={resultCaptureRef} className="result-capture-card sbti-capture-card">
             <ResultHero
-              firstResult={firstResults[0]}
-              secondResult={secondResults[0]}
-              secondaryFirst={firstResults[1]}
-              secondarySecond={secondResults[1]}
-              confidence={confidence}
+              result={finalProfile}
+              firstResult={firstResult}
+              secondResult={secondResult}
+              confidence={scoreResult.secondConfidence}
               modeLabel={modeModel.label}
             />
             <section className="panel compact-ranking-panel">
-              <h3>你的职业排名</h3>
-              <RankingTable results={secondResults} />
+              <h3>一转大类排名</h3>
+              <RankingTable results={scoreResult.firstRanking} />
+            </section>
+            <section className="panel compact-ranking-panel">
+              <h3>二转分支排名</h3>
+              <RankingTable results={scoreResult.secondRanking} />
+            </section>
+            <section className="panel compact-ranking-panel">
+              <h3>隐藏人格倾向</h3>
+              <TraitRanking traits={scoreResult.traitRanking} />
             </section>
           </div>
 
-          <CollapsibleDimensions
-            title="一转隐藏维度"
-            scores={firstScores}
-            dimensions={modeModel.firstJobDimensions}
-          />
-          <CollapsibleDimensions
-            title="二转隐藏维度"
-            scores={secondScores}
-            dimensions={secondDimensions}
-          />
           <div className="action-row">
             <button className="primary-btn" onClick={saveResultScreenshot} disabled={isSaving}>
               {isSaving ? "正在生成截图..." : "导出分享卡片"}
             </button>
             <button className="primary-btn" onClick={restart}>重新测试</button>
-            <button className="ghost-btn" onClick={() => setStage("second")}>调整二转答案</button>
+            <button className="ghost-btn" onClick={() => setStage("test")}>调整答案</button>
           </div>
         </section>
       )}
