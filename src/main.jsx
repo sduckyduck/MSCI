@@ -8,6 +8,7 @@ import "./premium-light.css";
 import "./export-stable-preview.css";
 import "./intro-layout.css";
 import "./export-share-card.css";
+import "./export-character-framing.css";
 import "./author-widget.css";
 
 createRoot(document.getElementById("root")).render(
