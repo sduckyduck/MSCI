@@ -270,7 +270,6 @@ function QuestionCard({ question, value, onChange, index }) {
           </button>
         ))}
       </div>
-      <p className="wizard-help">前 16 题权重最高，生活抽象题会降权处理，不会压过游戏行为判断。</p>
     </article>
   );
 }
@@ -401,7 +400,6 @@ function TestWizard({ questions, responses, currentIndex, setCurrentIndex, onAns
         <section className="stage-result-card completion-anchor">
           <p className="eyebrow">测试完成</p>
           <h2>职业人格已生成</h2>
-          <p>系统会先锁定一转大类，再只在对应二转分支内排名，避免结果乱跳。</p>
           <button type="button" className="primary-btn" onClick={onShowResult}>查看最终结果</button>
         </section>
       )}
