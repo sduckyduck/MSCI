@@ -107,19 +107,6 @@ function getStoredGender() {
   }
 }
 
-function setStoredGender(gender) {
-  const normalized = normalizeGender(gender);
-  if (!normalized || typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(GENDER_STORAGE_KEY, normalized);
-  } catch {
-    // Ignore storage failures.
-  }
-
-  window.dispatchEvent(new CustomEvent(GENDER_EVENT_NAME, { detail: { gender: normalized } }));
-}
-
 function getStoredHideHat() {
   if (typeof window === "undefined") return false;
   try {
@@ -173,29 +160,41 @@ function filterHatEntries(entries, hideHat) {
   return hideHat ? entries.filter((entry) => !itemIsHatEntry(entry)) : entries;
 }
 
-function normalizeCharacterUrl(currentSrc, hideHat = false) {
-  const src = String(currentSrc || "");
-  if (!src.includes("/Character/")) return src;
+function replaceCharacterItemSegment(src, transformEntries) {
+  const value = String(src || "");
+  if (!value.includes("/Character/")) return value;
 
-  return src.replace(
+  return value.replace(
     /(\/Character\/)(\d+)(\/)([^/]+)(\/[^?]+)(\?.*)?$/,
-    (match, characterPrefix, _skin, slash, itemSegment, actionSegment, query = "") => {
+    (match, characterPrefix, skin, slash, itemSegment, actionSegment, query = "") => {
       const entries = decodeURIComponent(itemSegment)
         .split(",")
         .map((entry) => entry.trim())
         .filter(Boolean);
-
-      const gender = inferGenderFromHairId(entries[0]) || "female";
-      const faceEmote = getFaceEmote(entries[1]);
-      const normalizedEntries = [
-        String(randomFrom(HAIR_COLOR_POOLS[gender])),
-        `${randomFrom(FACE_IDS[gender])}:${faceEmote}`,
-        ...filterHatEntries(entries.slice(2), hideHat),
-      ];
-
-      return `${characterPrefix}${FIXED_SKIN_ID}${slash}${encodeURIComponent(normalizedEntries.join(","))}${actionSegment}${query}`;
+      const nextEntries = transformEntries(entries);
+      return `${characterPrefix}${skin}${slash}${encodeURIComponent(nextEntries.join(","))}${actionSegment}${query}`;
     }
   );
+}
+
+function makeStableBaseCharacterUrl(currentSrc) {
+  return replaceCharacterItemSegment(currentSrc, (entries) => {
+    const gender = inferGenderFromHairId(entries[0]) || "female";
+    const faceEmote = getFaceEmote(entries[1]);
+    return [
+      String(randomFrom(HAIR_COLOR_POOLS[gender])),
+      `${randomFrom(FACE_IDS[gender])}:${faceEmote}`,
+      ...entries.slice(2),
+    ];
+  }).replace(/(\/Character\/)\d+(\/)/, `$1${FIXED_SKIN_ID}$2`);
+}
+
+function applyHatVisibilityToUrl(baseSrc, hideHat = false) {
+  if (!hideHat) return baseSrc;
+  return replaceCharacterItemSegment(baseSrc, (entries) => [
+    ...entries.slice(0, 2),
+    ...filterHatEntries(entries.slice(2), true),
+  ]);
 }
 
 function normalizeCharacterImages(root, hideHat = false) {
@@ -203,13 +202,19 @@ function normalizeCharacterImages(root, hideHat = false) {
 
   root.querySelectorAll("img.msio-character-img").forEach((image) => {
     const currentSrc = image.getAttribute("src") || "";
-    if (!currentSrc) return;
+    if (!currentSrc || !currentSrc.includes("/Character/")) return;
 
-    if (image.dataset.msciNormalizedHideHat === String(hideHat) && image.dataset.msciNormalizedSrc === currentSrc) return;
+    const previousDisplaySrc = image.dataset.msciDisplayCharacterSrc || "";
+    const hasBase = Boolean(image.dataset.msciBaseCharacterSrc);
+    const isOwnRender = Boolean(previousDisplaySrc && currentSrc === previousDisplaySrc);
 
-    const nextSrc = normalizeCharacterUrl(currentSrc, hideHat);
-    image.dataset.msciNormalizedHideHat = String(hideHat);
-    image.dataset.msciNormalizedSrc = nextSrc || currentSrc;
+    if (!hasBase || !isOwnRender) {
+      image.dataset.msciBaseCharacterSrc = makeStableBaseCharacterUrl(currentSrc);
+    }
+
+    const baseSrc = image.dataset.msciBaseCharacterSrc;
+    const nextSrc = applyHatVisibilityToUrl(baseSrc, hideHat);
+    image.dataset.msciDisplayCharacterSrc = nextSrc;
 
     if (nextSrc && nextSrc !== currentSrc) {
       image.setAttribute("src", nextSrc);
@@ -248,6 +253,33 @@ function hideNativeGenderControl(root) {
   block.style.display = "none";
 }
 
+function syncHideHatButton(root, hideHat, onToggle) {
+  if (!root) return;
+
+  const controlGroups = Array.from(root.querySelectorAll(".character-builder-controls"));
+  const targetGroup = controlGroups.find((group) =>
+    Array.from(group.querySelectorAll("button")).some((button) =>
+      /随机|换一套/.test(String(button.textContent || ""))
+    )
+  );
+
+  if (!targetGroup) return;
+
+  let button = targetGroup.querySelector(".msci-hide-hat-inline-btn");
+  if (!button) {
+    button = document.createElement("button");
+    button.type = "button";
+    button.className = "msci-hide-hat-inline-btn";
+    button.dataset.exportHidden = "true";
+    button.dataset.html2canvasIgnore = "true";
+    targetGroup.appendChild(button);
+  }
+
+  button.textContent = hideHat ? "显示帽子" : "隐藏帽子";
+  button.classList.toggle("active", Boolean(hideHat));
+  button.onclick = onToggle;
+}
+
 function normalizeLegacyFaceEmote(emote) {
   const key = String(emote || "default").trim().toLowerCase();
   if (!key || key === "0" || key === "e00" || key === "normal") return "default";
@@ -262,11 +294,10 @@ function normalizeLegacyFaceEmote(emote) {
 
 function buildMapleStoryIoCharacterUrl(config) {
   const faceEmote = normalizeLegacyFaceEmote(config.emote);
-  const equipment = filterHatEntries((config.equipment || []).map(Number), Boolean(config.hideHat));
   const entries = [
     Number(config.hair),
     `${Number(config.face)}:${faceEmote}`,
-    ...equipment,
+    ...(config.equipment || []).map(Number),
   ].filter(Boolean);
 
   const itemPath = encodeURIComponent(entries.join(","));
@@ -275,7 +306,7 @@ function buildMapleStoryIoCharacterUrl(config) {
   return `https://maplestory.io/api/GMS/83/Character/${FIXED_SKIN_ID}/${itemPath}/${action}/0?resize=3&renderMode=Full&bgColor=0,0,0,0&faceEmote=${encodeURIComponent(faceEmote)}`;
 }
 
-function PirateCharacterBuilder({ profile, preferredGender, hideHat }) {
+function PirateCharacterBuilder({ profile, preferredGender }) {
   const roleCode = String(profile?.code || "BRAW").trim().toUpperCase();
   const [gender, setGender] = useState(() => normalizeGender(preferredGender) || "female");
   const [reroll, setReroll] = useState(0);
@@ -288,7 +319,7 @@ function PirateCharacterBuilder({ profile, preferredGender, hideHat }) {
 
   useEffect(() => {
     setUseSafeFallback(false);
-  }, [roleCode, gender, reroll, hideHat]);
+  }, [roleCode, gender, reroll]);
 
   const config = useMemo(() => {
     const emote = roleCode === "GUNS" ? "wink" : "angry";
@@ -299,9 +330,8 @@ function PirateCharacterBuilder({ profile, preferredGender, hideHat }) {
       emote,
       action: roleCode === "GUNS" ? "stand1" : "stand2",
       equipment: useSafeFallback ? [] : randomFrom(loadouts),
-      hideHat,
     };
-  }, [roleCode, gender, reroll, useSafeFallback, hideHat]);
+  }, [roleCode, gender, reroll, useSafeFallback]);
 
   const imageUrl = buildMapleStoryIoCharacterUrl(config);
 
@@ -337,6 +367,12 @@ function CleanCharacterBuilder(props) {
   const [hideHat, setHideHat] = useState(() => getStoredHideHat());
   const [builderResetKey, setBuilderResetKey] = useState(0);
 
+  function toggleHideHat() {
+    const nextHideHat = !hideHat;
+    setHideHat(nextHideHat);
+    setStoredHideHat(nextHideHat);
+  }
+
   useEffect(() => {
     function handleGenderChange(event) {
       setPreferredGender(normalizeGender(event?.detail?.gender) || getStoredGender() || "female");
@@ -368,18 +404,15 @@ function CleanCharacterBuilder(props) {
     const root = rootRef.current;
     if (!root) return undefined;
 
-    root.querySelectorAll("img.msio-character-img").forEach((image) => {
-      image.dataset.msciNormalizedSrc = "";
-      image.dataset.msciNormalizedHideHat = "";
-    });
-
     syncNativeGenderSelect(root, preferredGender);
     hideNativeGenderControl(root);
+    syncHideHatButton(root, hideHat, toggleHideHat);
     normalizeCharacterImages(root, hideHat);
 
     const observer = new MutationObserver(() => {
       syncNativeGenderSelect(root, preferredGender);
       hideNativeGenderControl(root);
+      syncHideHatButton(root, hideHat, toggleHideHat);
       normalizeCharacterImages(root, hideHat);
     });
 
@@ -393,26 +426,13 @@ function CleanCharacterBuilder(props) {
     return () => observer.disconnect();
   }, [preferredGender, hideHat, builderResetKey]);
 
-  function toggleHideHat() {
-    const nextHideHat = !hideHat;
-    setHideHat(nextHideHat);
-    setStoredHideHat(nextHideHat);
-    if (!nextHideHat) setBuilderResetKey((current) => current + 1);
-  }
-
   return (
     <div ref={rootRef} className="clean-character-builder">
       <style>{`
         .clean-character-builder .builder-summary span {
           display: none !important;
         }
-        .clean-character-builder .msci-extra-builder-controls {
-          margin-top: 10px;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-        }
-        .clean-character-builder .msci-extra-builder-controls button {
+        .clean-character-builder .msci-hide-hat-inline-btn {
           border: 2px solid rgba(58, 88, 124, 0.72);
           border-radius: 14px;
           background: rgba(246, 248, 252, 0.92);
@@ -421,21 +441,16 @@ function CleanCharacterBuilder(props) {
           padding: 10px 16px;
           cursor: pointer;
         }
-        .clean-character-builder .msci-extra-builder-controls button.active {
+        .clean-character-builder .msci-hide-hat-inline-btn.active {
           background: rgba(226, 240, 255, 0.96);
           border-color: rgba(45, 107, 166, 0.95);
         }
       `}</style>
       {isPirate ? (
-        <PirateCharacterBuilder key={`pirate-${builderResetKey}`} {...props} preferredGender={preferredGender} hideHat={hideHat} />
+        <PirateCharacterBuilder key={`pirate-${builderResetKey}`} {...props} preferredGender={preferredGender} />
       ) : (
         <FastCharacterBuilder key={`normal-${builderResetKey}`} {...props} />
       )}
-      <div className="character-builder-controls msci-extra-builder-controls" data-export-hidden="true">
-        <button type="button" className={hideHat ? "active" : ""} onClick={toggleHideHat}>
-          {hideHat ? "显示帽子" : "隐藏帽子"}
-        </button>
-      </div>
     </div>
   );
 }
