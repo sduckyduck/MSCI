@@ -1,0 +1,26 @@
+.export-footer span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  font-size: 0;
+}
+
+.export-footer span:last-child::before {
+  content: "";
+  width: 28px;
+  height: 28px;
+  display: inline-block;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  background: #ffffff url("/assets/icon.jpg") center / cover no-repeat;
+  box-shadow: inset 0 0 0 1px #efefef;
+}
+
+.export-footer span:last-child::after {
+  content: "@奇怪小鸭";
+  color: #59666e;
+  font-size: 23px;
+  font-weight: 900;
+  line-height: 1;
+}
