@@ -183,11 +183,15 @@ function normalizeCharacterImages(root, preferredGender) {
   root.querySelectorAll("img.msio-character-img").forEach((image) => {
     const currentSrc = image.getAttribute("src") || "";
     const normalizedGender = normalizeGender(preferredGender) || "female";
-    const normalizedKey = `${normalizedGender}:${currentSrc}`;
-    if (!currentSrc || normalizedKey === image.dataset.msciNormalizedSrc) return;
+    if (!currentSrc) return;
+
+    if (image.dataset.msciNormalizedGender === normalizedGender && image.dataset.msciNormalizedSrc === currentSrc) {
+      return;
+    }
 
     const nextSrc = normalizeCharacterUrl(currentSrc, normalizedGender);
-    image.dataset.msciNormalizedSrc = normalizedKey;
+    image.dataset.msciNormalizedGender = normalizedGender;
+    image.dataset.msciNormalizedSrc = nextSrc || currentSrc;
 
     if (nextSrc && nextSrc !== currentSrc) {
       image.setAttribute("src", nextSrc);
@@ -308,6 +312,7 @@ function CleanCharacterBuilder(props) {
 
     root.querySelectorAll("img.msio-character-img").forEach((image) => {
       image.dataset.msciNormalizedSrc = "";
+      image.dataset.msciNormalizedGender = "";
     });
 
     normalizeCharacterImages(root, preferredGender);
