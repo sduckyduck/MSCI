@@ -13,13 +13,13 @@
   box-sizing: border-box;
   width: 1080px;
   height: 1920px;
-  padding: 58px;
+  padding: 58px 62px 52px;
   overflow: hidden;
   color: #2c1d12;
   background:
-    radial-gradient(circle at 18% 7%, rgba(255, 255, 255, 0.78), transparent 18%),
-    radial-gradient(circle at 88% 10%, rgba(179, 218, 225, 0.58), transparent 22%),
-    linear-gradient(180deg, #f7fbf9 0%, #eef6ef 45%, #f8edcf 100%);
+    radial-gradient(circle at 18% 7%, rgba(255, 255, 255, 0.80), transparent 18%),
+    radial-gradient(circle at 88% 10%, rgba(179, 218, 225, 0.48), transparent 22%),
+    linear-gradient(180deg, #f8fbfa 0%, #eef6ef 48%, #f8edcf 100%);
   border: 0;
   border-radius: 0;
   font-family: Inter, "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -27,14 +27,14 @@
 
 .export-card-header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .export-card-header p,
 .export-role-name {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   color: #6f7b82;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 900;
   letter-spacing: 0.06em;
 }
@@ -42,93 +42,116 @@
 .export-card-header h1 {
   margin: 0;
   color: #2c1d12;
-  font-size: 56px;
+  font-size: 54px;
   line-height: 1.08;
   letter-spacing: -0.04em;
 }
 
 .export-hero-card,
 .export-mini-panel {
-  border: 3px solid rgba(115, 127, 139, 0.20);
-  border-radius: 42px;
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 18px 44px rgba(44, 29, 18, 0.10);
+  border: 3px solid rgba(115, 127, 139, 0.18);
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 38px rgba(44, 29, 18, 0.09);
 }
 
 .export-hero-card {
   display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 34px;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 30px;
   align-items: center;
-  padding: 36px;
+  min-height: 390px;
+  padding: 30px 34px;
 }
 
 .export-character-frame {
-  width: 360px;
-  height: 360px;
+  width: 306px;
+  height: 306px;
   display: grid;
   place-items: center;
   margin: 0 auto;
   overflow: hidden;
   border-radius: 34px;
-  background: linear-gradient(180deg, #eef4f1, #e3ebe7);
+  background: linear-gradient(180deg, #f5f7f7, #e9eeeb);
 }
 
 .export-character-frame .clean-character-builder,
+.export-character-frame .character-builder,
 .export-character-frame .pirate-character-builder,
 .export-character-frame .fast-character-builder,
+.export-character-frame .character-preview-card,
+.export-character-frame .character-preview-bg,
 .export-character-frame .builder-preview-frame {
   width: 100% !important;
   height: 100% !important;
+  min-width: 0 !important;
   min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
   margin: 0 !important;
+  padding: 0 !important;
   border: 0 !important;
+  border-radius: 34px !important;
   box-shadow: none !important;
   background: transparent !important;
+  overflow: hidden !important;
 }
 
+.export-character-frame .character-preview-bg,
 .export-character-frame .builder-preview-frame {
   display: grid !important;
   place-items: center !important;
-  overflow: hidden !important;
 }
 
 .export-character-frame img,
 .export-character-frame .msio-character-img {
-  width: 94% !important;
-  height: 94% !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: 132% !important;
+  max-height: 132% !important;
   object-fit: contain !important;
+  object-position: center bottom !important;
   image-rendering: pixelated;
+  transform: scale(1.08) !important;
+  transform-origin: center bottom !important;
+  filter: drop-shadow(0 9px 0 rgba(0, 0, 0, 0.10));
 }
 
 .export-character-frame .character-builder-controls,
 .export-character-frame .builder-summary,
 .export-character-frame .builder-loading,
-.export-character-frame .builder-error {
+.export-character-frame .builder-error,
+.export-character-frame .builder-note {
   display: none !important;
+}
+
+.export-result-side {
+  min-width: 0;
 }
 
 .export-result-side h2 {
   margin: 0;
   color: #2c1d12;
-  font-size: 72px;
-  line-height: 1.02;
+  font-size: 66px;
+  line-height: 1.04;
   letter-spacing: -0.07em;
+  word-break: keep-all;
 }
 
 .export-result-side strong {
   display: block;
-  margin: 12px 0 16px;
+  margin: 10px 0 14px;
   color: #3d6187;
-  font-size: 108px;
+  font-size: 100px;
   line-height: 0.95;
   letter-spacing: 0.02em;
 }
 
 .export-slogan {
-  margin: 0 0 22px;
+  margin: 0 0 20px;
   color: #6f7b82;
-  font-size: 28px;
+  font-size: 25px;
   line-height: 1.38;
   font-weight: 900;
 }
@@ -137,85 +160,93 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 18px 26px;
+  max-width: 100%;
+  padding: 16px 24px;
   border-radius: 999px;
   color: #fff;
   background: linear-gradient(180deg, #456d9a, #31577f);
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 1000;
+  white-space: nowrap;
 }
 
 .export-description {
-  margin: 28px 8px;
+  margin: 26px 6px;
   color: #59666e;
-  font-size: 30px;
-  line-height: 1.55;
+  font-size: 29px;
+  line-height: 1.48;
   font-weight: 800;
 }
 
 .export-rank-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin-bottom: 24px;
+  gap: 22px;
+  margin-bottom: 22px;
 }
 
 .export-mini-panel {
-  padding: 28px;
+  padding: 24px;
 }
 
 .export-mini-panel h4 {
-  margin: 0 0 20px;
+  margin: 0 0 17px;
   color: #2c1d12;
-  font-size: 32px;
+  font-size: 31px;
   line-height: 1.15;
   letter-spacing: -0.04em;
 }
 
 .export-mini-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .export-mini-row {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 16px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
   align-items: center;
-  min-height: 84px;
-  padding: 14px 16px;
-  border: 2px solid rgba(115, 127, 139, 0.16);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.72);
+  min-height: 76px;
+  padding: 12px 14px;
+  border: 2px solid rgba(115, 127, 139, 0.14);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.74);
 }
 
 .export-mini-row > span {
-  width: 54px;
-  height: 54px;
+  width: 50px;
+  height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 18px;
+  border-radius: 17px;
   color: #fff;
   background: linear-gradient(180deg, #456d9a, #31577f);
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 1000;
 }
 
 .export-mini-row b {
   display: block;
   color: #2c1d12;
-  font-size: 25px;
-  line-height: 1.12;
+  font-size: 23px;
+  line-height: 1.14;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .export-mini-row small {
   display: block;
   margin-top: 5px;
   color: #707b82;
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1.2;
   font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .export-footer {
@@ -223,22 +254,23 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  margin-top: 28px;
-  padding: 22px 26px;
+  margin-top: 24px;
+  padding: 20px 26px;
   border-radius: 999px;
   color: #59666e;
-  background: rgba(255, 255, 255, 0.62);
-  font-size: 24px;
+  background: rgba(255, 255, 255, 0.66);
+  font-size: 23px;
   font-weight: 900;
 }
 
-.export-footer span:last-child {
-  font-size: 0;
+.export-footer span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.export-footer span:last-child::after {
-  content: "🐥 @奇怪小鸭";
-  font-size: 24px;
+.export-footer span:last-child {
+  flex-shrink: 0;
 }
 
 .exporting-png .export-share-stage {
