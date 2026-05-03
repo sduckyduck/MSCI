@@ -1,10 +1,8 @@
 (() => {
-  const DATA_CACHE_BUSTER = "rare-equipment-pool-20260503-zakum";
+  const DATA_CACHE_BUSTER = "equal-rare-equipment-pool-20260503";
   const GUIDEBOOK_DATA_BASE = "https://raw.githubusercontent.com/sduckyduck/osms-classic-guidebook/main/public/data";
   const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json?v=${DATA_CACHE_BUSTER}`;
   const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv?v=${DATA_CACHE_BUSTER}`;
-  const RARE_WEAPON_ROLL = 0.08;
-  const LEGENDARY_HAT_ROLL = 0.01;
   const RETRY_DELAY_MS = 220;
   const RECHECK_DELAY_MS = 900;
 
@@ -13,55 +11,32 @@
   const WEAPON_ID_PREFIXES = [
     "130", "131", "132", "133", "137", "138", "140", "141", "142", "143", "144", "145", "146", "147", "148", "149",
   ];
+  const CLASS_GROUPS = ["warrior", "magician", "archer", "thief", "pirate"];
 
   const ROLE_RULES = {
-    SLAY: { label: "剑客", weaponKinds: ["2h-sword"] },
-    SHLD: { label: "准骑士", weaponKinds: ["1h-sword", "1h-axe", "1h-blunt"] },
-    POLE: { label: "枪战士", weaponKinds: ["spear", "pole-arm"] },
-    ZAPZ: { label: "冰雷法师", weaponKinds: ["wand", "staff"] },
-    TOXI: { label: "火毒法师", weaponKinds: ["wand", "staff"] },
-    HEAL: { label: "牧师", weaponKinds: ["wand", "staff"] },
-    STAR: { label: "刺客", weaponKinds: ["claw"] },
-    STAB: { label: "侠客", weaponKinds: ["dagger"] },
-    KITE: { label: "猎人", weaponKinds: ["bow"] },
-    SNIP: { label: "弩弓手", weaponKinds: ["crossbow"] },
-    BRAW: { label: "拳手", weaponKinds: ["knuckle"] },
-    GUNS: { label: "火枪手", weaponKinds: ["gun", "pistol"] },
+    SLAY: { label: "剑客", classGroup: "warrior", weaponKinds: ["2h-sword"] },
+    SHLD: { label: "准骑士", classGroup: "warrior", weaponKinds: ["1h-sword", "1h-axe", "1h-blunt"] },
+    POLE: { label: "枪战士", classGroup: "warrior", weaponKinds: ["spear", "pole-arm"] },
+    ZAPZ: { label: "冰雷法师", classGroup: "magician", weaponKinds: ["wand", "staff"] },
+    TOXI: { label: "火毒法师", classGroup: "magician", weaponKinds: ["wand", "staff"] },
+    HEAL: { label: "牧师", classGroup: "magician", weaponKinds: ["wand", "staff"] },
+    STAR: { label: "刺客", classGroup: "thief", weaponKinds: ["claw"] },
+    STAB: { label: "侠客", classGroup: "thief", weaponKinds: ["dagger"] },
+    KITE: { label: "猎人", classGroup: "archer", weaponKinds: ["bow"] },
+    SNIP: { label: "弩弓手", classGroup: "archer", weaponKinds: ["crossbow"] },
+    BRAW: { label: "拳手", classGroup: "pirate", weaponKinds: ["knuckle"] },
+    GUNS: { label: "火枪手", classGroup: "pirate", weaponKinds: ["gun", "pistol"] },
   };
 
-  // Hand-picked name hints are intentionally broad because OSMS / MapleStory.io names can differ by source.
-  // The fallback level rule below still catches regular 70-100 weapons even when a name is not listed here.
-  const RARE_NAME_HINTS = [
-    // Warrior / spearman highlights
-    "odin spear", "fairfrozen", "sky ski", "dragon faltizan", "omega spear", "pinaka",
-    "gold dragon", "hellslayer", "purple surfboard", "maple impaler", "maple scorpio",
-    "stonetooth sword", "dragon claymore", "solomon", "eternal solomon", "sparta", "maple soul rohen", "maple glory sword",
-
-    // Magician highlights
-    "evil wings", "necromancer", "doomsday staff", "elemental staff", "elemental wand",
-    "maple lama staff", "maple shine wand", "maple staff", "maple wand", "maple umbrella", "umbrella",
-
-    // Thief highlights
-    "red craven", "dragon green sleeve", "maple kandayo", "maple skanda", "casters", "dragon kanzir", "gold double knife",
-    "maple wagner", "maple dagger", "maple claw",
-
-    // Archer highlights
-    "dark nisrock", "dragon shiner bow", "metus", "maple kandiva bow", "maple bow",
-    "dark neschere", "dragon shiner cross", "maple nishada", "maple crossbow",
-
-    // Pirate highlights
-    "king cent", "dragon slash claw", "maple knuckle", "maple golden claw",
-    "concerto", "dragon revolver", "maple gun", "maple storm pistol", "pistol",
-  ].map(normalizeName);
-
-  // 扎昆头盔 / Zakum Helmet: all classes can roll it, but at the lowest visible rate.
+  // 扎昆头盔 / Zakum Helmet is the only universal hat intentionally allowed into every job pool.
+  // Other common/all-class hats are still excluded so jobs do not all share the same generic equipment pool.
   const LEGENDARY_HAT_NAME_HINTS = ["zakum helmet", "zakum helm", "zakum", "扎昆", "砝坤"].map(normalizeName);
   const FALLBACK_LEGENDARY_HATS = [
-    { id: 1002357, guidebookId: 1002357, name: "Zakum Helmet", normalizedName: "zakum helmet", slot: "Hat", reqLevel: 50, weaponType: "" },
+    { id: 1002357, guidebookId: 1002357, name: "Zakum Helmet", normalizedName: "zakum helmet", className: "All", slot: "Hat", reqLevel: 50, weaponType: "" },
   ];
 
-  let rareDataPromise = null;
-  let rarePools = null;
+  let equalDataPromise = null;
+  let equalPools = null;
 
   function toNumber(value, fallback = null) {
     if (value === undefined || value === null || value === "") return fallback;
@@ -167,10 +142,37 @@
       guidebookId,
       name,
       normalizedName: normalizeName(name),
+      className: item.req_job_label || item.requiredJob || item.requiredJobs?.join("/") || "All",
       slot: normalizeSlot(item.sub_category),
       reqLevel: toNumber(item.stats?.reqLevel ?? item.reqLevel ?? item.requiredLevel, 0),
       weaponType: item.weapon_type || item.weaponType || "",
     };
+  }
+
+  function classGroupsFromLabel(label) {
+    const value = String(label || "").toLowerCase();
+    const groups = new Set();
+    if (value.includes("warrior") || value.includes("swordman")) groups.add("warrior");
+    if (value.includes("magician") || value.includes("mage") || value.includes("wizard")) groups.add("magician");
+    if (value.includes("archer") || value.includes("bowman")) groups.add("archer");
+    if (value.includes("thief") || value.includes("rogue")) groups.add("thief");
+    if (value.includes("pirate") || value.includes("brawler") || value.includes("gunslinger")) groups.add("pirate");
+    return groups;
+  }
+
+  function isUniversalClassLabel(label) {
+    const value = String(label || "").trim().toLowerCase();
+    if (!value) return true;
+    if (value === "all" || value === "common" || value === "beginner") return true;
+    if (value.includes("all classes") || value.includes("common") || value.includes("beginner")) return true;
+    const groups = classGroupsFromLabel(value);
+    return CLASS_GROUPS.every((group) => groups.has(group));
+  }
+
+  function itemIsStrictClassEquipment(item, classGroup) {
+    if (isUniversalClassLabel(item?.className)) return false;
+    const groups = classGroupsFromLabel(item?.className);
+    return groups.size === 1 && groups.has(classGroup);
   }
 
   function getWeaponText(item) {
@@ -197,28 +199,10 @@
     return false;
   }
 
-  function hasRareNameHint(item) {
-    const name = item?.normalizedName || normalizeName(item?.name);
-    if (!name) return false;
-    return RARE_NAME_HINTS.some((hint) => hint && name.includes(hint));
-  }
-
   function hasLegendaryHatHint(item) {
     const name = item?.normalizedName || normalizeName(item?.name);
     if (!name) return false;
     return LEGENDARY_HAT_NAME_HINTS.some((hint) => hint && name.includes(hint));
-  }
-
-  function isRareWeaponCandidate(item) {
-    if (!item || item.slot !== "Weapon") return false;
-    const level = toNumber(item.reqLevel, 0);
-    const name = item.normalizedName || normalizeName(item.name);
-    const isMapleWeapon = name.includes("maple") && !name.includes("cape") && !name.includes("shield");
-    return hasRareNameHint(item) || isMapleWeapon || (level >= 70 && level <= 100);
-  }
-
-  function isLegendaryHatCandidate(item) {
-    return item?.slot === "Hat" && hasLegendaryHatHint(item);
   }
 
   function dedupeById(items) {
@@ -238,50 +222,53 @@
     return items[Math.floor(Math.random() * items.length)];
   }
 
-  async function loadRarePools() {
-    if (rarePools) return rarePools;
-    if (!rareDataPromise) {
-      rareDataPromise = Promise.all([
+  async function loadEqualPools() {
+    if (equalPools) return equalPools;
+    if (!equalDataPromise) {
+      equalDataPromise = Promise.all([
         fetch(GUIDEBOOK_ITEMS_URL, { cache: "no-store" }).then((res) => res.json()),
         fetch(GUIDEBOOK_MSIO_MAP_URL, { cache: "no-store" }).then((res) => res.text()),
       ]).then(([itemJson, mapText]) => {
         const rows = Array.isArray(itemJson) ? itemJson : itemJson.items || itemJson.data || [];
         const msioMap = buildMsioMap(parseCsv(mapText));
-        const records = rows
-          .map((item) => makeEquipmentRecord(item, msioMap))
-          .filter(Boolean);
+        const records = rows.map((item) => makeEquipmentRecord(item, msioMap)).filter(Boolean);
+        const legendaryHats = dedupeById([...records.filter((item) => item.slot === "Hat" && hasLegendaryHatHint(item)), ...FALLBACK_LEGENDARY_HATS]);
 
-        const rareWeapons = records.filter(isRareWeaponCandidate);
-        const legendaryHats = dedupeById([...records.filter(isLegendaryHatCandidate), ...FALLBACK_LEGENDARY_HATS]);
-
-        rarePools = {
+        equalPools = {
           weapons: Object.fromEntries(
             Object.entries(ROLE_RULES).map(([roleCode, rule]) => {
-              const pool = rareWeapons.filter((item) => (rule.weaponKinds || []).some((kind) => weaponMatchesKind(item, kind)));
-              return [roleCode, pool];
+              const pool = records.filter((item) => item.slot === "Weapon" && (rule.weaponKinds || []).some((kind) => weaponMatchesKind(item, kind)));
+              return [roleCode, dedupeById(pool)];
             })
           ),
-          hats: legendaryHats,
+          hats: Object.fromEntries(
+            Object.entries(ROLE_RULES).map(([roleCode, rule]) => {
+              const strictJobHats = records.filter((item) => item.slot === "Hat" && itemIsStrictClassEquipment(item, rule.classGroup));
+              return [roleCode, dedupeById([...strictJobHats, ...legendaryHats])];
+            })
+          ),
+          legendaryHats,
         };
 
         window.MSCI_RARE_WEAPON_POOL = {
-          weaponRoll: RARE_WEAPON_ROLL,
-          legendaryHatRoll: LEGENDARY_HAT_ROLL,
-          pools: rarePools.weapons,
-          hats: rarePools.hats,
+          mode: "equal-slot-pool",
+          weaponRoll: "same as eligible weapon pool",
+          legendaryHatRoll: "same as eligible hat pool",
+          pools: equalPools.weapons,
+          hatsByRole: equalPools.hats,
+          legendaryHatList: equalPools.legendaryHats.map((item) => ({ id: item.id, name: item.name, level: item.reqLevel })),
           list: Object.fromEntries(
-            Object.entries(rarePools.weapons).map(([roleCode, pool]) => [
+            Object.entries(equalPools.weapons).map(([roleCode, pool]) => [
               roleCode,
               pool.map((item) => ({ id: item.id, name: item.name, level: item.reqLevel, type: item.weaponType })),
             ])
           ),
-          legendaryHatList: rarePools.hats.map((item) => ({ id: item.id, name: item.name, level: item.reqLevel })),
         };
 
-        return rarePools;
+        return equalPools;
       });
     }
-    return rareDataPromise;
+    return equalDataPromise;
   }
 
   function findRoleCode(img) {
@@ -309,14 +296,20 @@
     return TWO_HAND_WEAPON_PREFIXES.some((prefix) => id.startsWith(prefix)) ? "stand2" : "stand1";
   }
 
-  function updateCharacterUrlEntries(src, updater, roleCode, weaponId = null) {
+  function getCharacterUrlParts(src) {
     const url = new URL(src);
     const parts = url.pathname.split("/");
     const skinIndex = parts.findIndex((part) => part === "2000");
     const itemIndex = skinIndex + 1;
     const actionIndex = skinIndex + 2;
-    if (skinIndex < 0 || !parts[itemIndex]) return src;
+    if (skinIndex < 0 || !parts[itemIndex]) return null;
+    return { url, parts, itemIndex, actionIndex };
+  }
 
+  function updateCharacterUrlEntries(src, updater, roleCode, weaponId = null) {
+    const parsed = getCharacterUrlParts(src);
+    if (!parsed) return src;
+    const { url, parts, itemIndex, actionIndex } = parsed;
     const entries = decodeURIComponent(parts[itemIndex])
       .split(",")
       .map((entry) => entry.trim())
@@ -328,79 +321,83 @@
     return url.toString();
   }
 
-  function replaceWeaponInCharacterUrl(src, roleCode, rareWeapon) {
+  function readCharacterEntries(src) {
+    const parsed = getCharacterUrlParts(src);
+    if (!parsed) return [];
+    return decodeURIComponent(parsed.parts[parsed.itemIndex])
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  function replaceWeaponInCharacterUrl(src, roleCode, weapon) {
     return updateCharacterUrlEntries(
       src,
-      (entries) => [...entries.filter((entry) => !isWeaponId(entry)), String(rareWeapon.id)],
+      (entries) => [...entries.filter((entry) => !isWeaponId(entry)), String(weapon.id)],
       roleCode,
-      rareWeapon.id
+      weapon.id
     );
   }
 
-  function replaceHatInCharacterUrl(src, legendaryHat) {
+  function replaceHatInCharacterUrl(src, hat) {
     return updateCharacterUrlEntries(
       src,
-      (entries) => [...entries.filter((entry) => !isHatId(entry)), String(legendaryHat.id)],
+      (entries) => [...entries.filter((entry) => !isHatId(entry)), String(hat.id)],
       null,
       null
     );
   }
 
-  async function maybeApplyRareEquipment(img) {
+  async function maybeApplyEqualEquipment(img) {
     if (!img || !img.classList?.contains("msio-character-img")) return;
     const currentSrc = img.currentSrc || img.src || "";
-    if (!currentSrc || img.dataset.msciRareCheckedSrc === currentSrc || img.dataset.msciRareAppliedSrc === currentSrc) return;
+    if (!currentSrc || img.dataset.msciEqualCheckedSrc === currentSrc || img.dataset.msciEqualAppliedSrc === currentSrc) return;
 
-    img.dataset.msciRareCheckedSrc = currentSrc;
+    img.dataset.msciEqualCheckedSrc = currentSrc;
     const roleCode = findRoleCode(img);
-    const rule = ROLE_RULES[roleCode];
-    if (!rule) return;
-
-    const shouldRollLegendaryHat = Math.random() < LEGENDARY_HAT_ROLL;
-    const shouldRollRareWeapon = Math.random() < RARE_WEAPON_ROLL;
-    if (!shouldRollLegendaryHat && !shouldRollRareWeapon) return;
+    if (!ROLE_RULES[roleCode]) return;
 
     try {
-      const pools = await loadRarePools();
+      const pools = await loadEqualPools();
+      const entries = readCharacterEntries(currentSrc);
       let nextSrc = currentSrc;
       const applied = [];
 
-      if (shouldRollLegendaryHat) {
-        const legendaryHat = randomItem(pools?.hats || []);
-        if (legendaryHat) {
-          nextSrc = replaceHatInCharacterUrl(nextSrc, legendaryHat);
-          applied.push(`hat: ${legendaryHat.name} (${legendaryHat.id})`);
-        }
+      const weapon = randomItem(pools?.weapons?.[roleCode] || []);
+      if (weapon) {
+        nextSrc = replaceWeaponInCharacterUrl(nextSrc, roleCode, weapon);
+        applied.push(`weapon: ${weapon.name} (${weapon.id})`);
       }
 
-      if (shouldRollRareWeapon) {
-        const rareWeapon = randomItem(pools?.weapons?.[roleCode] || []);
-        if (rareWeapon) {
-          nextSrc = replaceWeaponInCharacterUrl(nextSrc, roleCode, rareWeapon);
-          applied.push(`weapon: ${rareWeapon.name} (${rareWeapon.id})`);
+      // Respect the existing hide-hat behavior: if the current URL has no hat, do not add one back.
+      if (entries.some((entry) => isHatId(entry))) {
+        const hat = randomItem(pools?.hats?.[roleCode] || []);
+        if (hat) {
+          nextSrc = replaceHatInCharacterUrl(nextSrc, hat);
+          applied.push(`hat: ${hat.name} (${hat.id})`);
         }
       }
 
       if (nextSrc && nextSrc !== currentSrc) {
         img.dataset.msciOriginalSrc = currentSrc;
-        img.dataset.msciRareEquipment = applied.join("; ");
-        img.dataset.msciRareAppliedSrc = nextSrc;
+        img.dataset.msciEqualEquipment = applied.join("; ");
+        img.dataset.msciEqualAppliedSrc = nextSrc;
         img.src = nextSrc;
       }
     } catch (error) {
-      console.warn("MSCI rare equipment pool failed:", error);
+      console.warn("MSCI equal equipment pool failed:", error);
     }
   }
 
   function scan() {
     document.querySelectorAll("img.msio-character-img").forEach((img) => {
-      window.setTimeout(() => maybeApplyRareEquipment(img), RETRY_DELAY_MS);
+      window.setTimeout(() => maybeApplyEqualEquipment(img), RETRY_DELAY_MS);
     });
   }
 
   if (typeof document !== "undefined") {
     window.addEventListener("DOMContentLoaded", () => {
-      loadRarePools().catch(() => {});
+      loadEqualPools().catch(() => {});
       scan();
       window.setTimeout(scan, RECHECK_DELAY_MS);
     });
@@ -408,13 +405,13 @@
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === "attributes" && mutation.target?.classList?.contains("msio-character-img")) {
-          window.setTimeout(() => maybeApplyRareEquipment(mutation.target), RETRY_DELAY_MS);
+          window.setTimeout(() => maybeApplyEqualEquipment(mutation.target), RETRY_DELAY_MS);
         }
         mutation.addedNodes?.forEach((node) => {
           if (!(node instanceof Element)) return;
-          if (node.matches?.("img.msio-character-img")) window.setTimeout(() => maybeApplyRareEquipment(node), RETRY_DELAY_MS);
+          if (node.matches?.("img.msio-character-img")) window.setTimeout(() => maybeApplyEqualEquipment(node), RETRY_DELAY_MS);
           node.querySelectorAll?.("img.msio-character-img").forEach((img) => {
-            window.setTimeout(() => maybeApplyRareEquipment(img), RETRY_DELAY_MS);
+            window.setTimeout(() => maybeApplyEqualEquipment(img), RETRY_DELAY_MS);
           });
         });
       }
