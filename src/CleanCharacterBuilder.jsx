@@ -3,6 +3,9 @@ import FastCharacterBuilder from "./FastCharacterBuilder";
 
 const FIXED_SKIN_ID = 2000;
 const PIRATE_ROLE_CODES = new Set(["BRAW", "GUNS"]);
+const GENDER_STORAGE_KEY = "msci-character-gender";
+const GENDER_EVENT_NAME = "msci-character-gender-change";
+const HAIR_COLOR_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7];
 
 const HAIR_STYLE_IDS = {
   male: [
@@ -49,17 +52,22 @@ const HAIR_STYLE_IDS = {
   ],
 };
 
+const FACE_IDS = {
+  male: [20000, 20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008, 20009, 20010, 20011, 20012, 20013, 20014],
+  female: [21000, 21001, 21002, 21003, 21004, 21005, 21006, 21007, 21008, 21009, 21010, 21011, 21012, 21013, 21014],
+};
+
+const HAIR_COLOR_POOLS = {
+  male: expandHairColors(HAIR_STYLE_IDS.male),
+  female: expandHairColors(HAIR_STYLE_IDS.female),
+};
+
 const HAIR_ID_SETS = {
-  male: new Set(HAIR_STYLE_IDS.male),
-  female: new Set(HAIR_STYLE_IDS.female),
+  male: new Set(HAIR_COLOR_POOLS.male),
+  female: new Set(HAIR_COLOR_POOLS.female),
 };
 
-const PIRATE_HAIR = HAIR_STYLE_IDS;
-
-const PIRATE_FACE = {
-  male: [20000, 20003, 20004, 20005, 20011],
-  female: [21000, 21003, 21004, 21009, 21014],
-};
+const PIRATE_HAIR = HAIR_COLOR_POOLS;
 
 const PIRATE_LOADOUTS = {
   BRAW: [
@@ -73,6 +81,42 @@ const PIRATE_LOADOUTS = {
     [1492000],
   ],
 };
+
+function expandHairColors(styleIds) {
+  const ids = new Set();
+  for (const styleId of styleIds || []) {
+    const baseId = Math.floor(Number(styleId) / 10) * 10;
+    for (const offset of HAIR_COLOR_OFFSETS) ids.add(baseId + offset);
+  }
+  return [...ids];
+}
+
+function normalizeGender(value) {
+  const key = String(value || "").trim().toLowerCase();
+  return key === "male" || key === "female" ? key : "";
+}
+
+function getStoredGender() {
+  if (typeof window === "undefined") return "";
+  try {
+    return normalizeGender(window.localStorage.getItem(GENDER_STORAGE_KEY));
+  } catch {
+    return "";
+  }
+}
+
+function setStoredGender(gender) {
+  const normalized = normalizeGender(gender);
+  if (!normalized || typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(GENDER_STORAGE_KEY, normalized);
+  } catch {
+    // Ignore storage failures.
+  }
+
+  window.dispatchEvent(new CustomEvent(GENDER_EVENT_NAME, { detail: { gender: normalized } }));
+}
 
 function inferGenderFromHairId(hairId) {
   const id = Number(hairId);
@@ -91,7 +135,22 @@ function randomFrom(items) {
   return items[Math.floor(Math.random() * items.length)] || items[0];
 }
 
-function normalizeCharacterUrl(currentSrc) {
+function getFaceEmote(faceEntry, fallback = "default") {
+  const parts = String(faceEntry || "").split(":");
+  return parts[1] || fallback;
+}
+
+function itemAllowedForGender(entry, gender) {
+  const id = Number(String(entry || "").split(":")[0]);
+  if (!Number.isFinite(id)) return true;
+
+  const prefix = String(id).slice(0, 4);
+  if (gender === "male") return !["1041", "1051", "1061"].includes(prefix);
+  if (gender === "female") return !["1040", "1050", "1060"].includes(prefix);
+  return true;
+}
+
+function normalizeCharacterUrl(currentSrc, preferredGender) {
   const src = String(currentSrc || "");
   if (!src.includes("/Character/")) return src;
 
@@ -103,25 +162,32 @@ function normalizeCharacterUrl(currentSrc) {
         .map((entry) => entry.trim())
         .filter(Boolean);
 
-      const gender = inferGenderFromHairId(entries[0]);
-      if (gender && HAIR_STYLE_IDS[gender]?.length) {
-        entries[0] = String(randomFrom(HAIR_STYLE_IDS[gender]));
-      }
+      const gender = normalizeGender(preferredGender) || inferGenderFromHairId(entries[0]) || "female";
+      const faceEmote = getFaceEmote(entries[1]);
+      const equipmentEntries = entries.slice(2).filter((entry) => itemAllowedForGender(entry, gender));
 
-      return `${characterPrefix}${FIXED_SKIN_ID}${slash}${encodeURIComponent(entries.join(","))}${actionSegment}${query}`;
+      const normalizedEntries = [
+        String(randomFrom(HAIR_COLOR_POOLS[gender])),
+        `${randomFrom(FACE_IDS[gender])}:${faceEmote}`,
+        ...equipmentEntries,
+      ];
+
+      return `${characterPrefix}${FIXED_SKIN_ID}${slash}${encodeURIComponent(normalizedEntries.join(","))}${actionSegment}${query}`;
     }
   );
 }
 
-function normalizeCharacterImages(root) {
+function normalizeCharacterImages(root, preferredGender) {
   if (!root) return;
 
   root.querySelectorAll("img.msio-character-img").forEach((image) => {
     const currentSrc = image.getAttribute("src") || "";
-    if (!currentSrc || currentSrc === image.dataset.msciNormalizedSrc) return;
+    const normalizedGender = normalizeGender(preferredGender) || "female";
+    const normalizedKey = `${normalizedGender}:${currentSrc}`;
+    if (!currentSrc || normalizedKey === image.dataset.msciNormalizedSrc) return;
 
-    const nextSrc = normalizeCharacterUrl(currentSrc);
-    image.dataset.msciNormalizedSrc = nextSrc;
+    const nextSrc = normalizeCharacterUrl(currentSrc, normalizedGender);
+    image.dataset.msciNormalizedSrc = normalizedKey;
 
     if (nextSrc && nextSrc !== currentSrc) {
       image.setAttribute("src", nextSrc);
@@ -155,11 +221,16 @@ function buildMapleStoryIoCharacterUrl(config) {
   return `https://maplestory.io/api/GMS/83/Character/${FIXED_SKIN_ID}/${itemPath}/${action}/0?resize=3&renderMode=Full&bgColor=0,0,0,0&faceEmote=${encodeURIComponent(faceEmote)}`;
 }
 
-function PirateCharacterBuilder({ profile }) {
+function PirateCharacterBuilder({ profile, preferredGender }) {
   const roleCode = String(profile?.code || "BRAW").trim().toUpperCase();
-  const [gender, setGender] = useState("female");
+  const [gender, setGender] = useState(() => normalizeGender(preferredGender) || "female");
   const [reroll, setReroll] = useState(0);
   const [useSafeFallback, setUseSafeFallback] = useState(false);
+
+  useEffect(() => {
+    const nextGender = normalizeGender(preferredGender);
+    if (nextGender) setGender(nextGender);
+  }, [preferredGender]);
 
   useEffect(() => {
     setUseSafeFallback(false);
@@ -170,7 +241,7 @@ function PirateCharacterBuilder({ profile }) {
     const loadouts = PIRATE_LOADOUTS[roleCode] || PIRATE_LOADOUTS.BRAW;
     return {
       hair: randomFrom(PIRATE_HAIR[gender]),
-      face: randomFrom(PIRATE_FACE[gender]),
+      face: randomFrom(FACE_IDS[gender]),
       emote,
       action: roleCode === "GUNS" ? "stand1" : "stand2",
       equipment: useSafeFallback ? [] : randomFrom(loadouts),
@@ -178,6 +249,12 @@ function PirateCharacterBuilder({ profile }) {
   }, [roleCode, gender, reroll, useSafeFallback]);
 
   const imageUrl = buildMapleStoryIoCharacterUrl(config);
+
+  function toggleGender() {
+    const nextGender = gender === "female" ? "male" : "female";
+    setGender(nextGender);
+    setStoredGender(nextGender);
+  }
 
   return (
     <div className="pirate-character-builder">
@@ -194,10 +271,10 @@ function PirateCharacterBuilder({ profile }) {
       </div>
       <div className="builder-summary">
         <b>{profile?.name || "海盗"}</b>
-        <span>国服海盗装备池 · {PIRATE_HAIR[gender].length} 发型</span>
+        <span>国服海盗装备池 · {PIRATE_HAIR[gender].length} 发型颜色组合</span>
       </div>
       <div className="character-builder-controls" data-export-hidden="true">
-        <button type="button" onClick={() => setGender((current) => (current === "female" ? "male" : "female"))}>
+        <button type="button" onClick={toggleGender}>
           {gender === "female" ? "切换男号" : "切换女号"}
         </button>
         <button type="button" onClick={() => setReroll((current) => current + 1)}>换一套</button>
@@ -210,15 +287,33 @@ function CleanCharacterBuilder(props) {
   const rootRef = useRef(null);
   const roleCode = String(props?.profile?.code || "").trim().toUpperCase();
   const isPirate = PIRATE_ROLE_CODES.has(roleCode);
+  const [preferredGender, setPreferredGender] = useState(() => getStoredGender() || "female");
+
+  useEffect(() => {
+    function handleGenderChange(event) {
+      setPreferredGender(normalizeGender(event?.detail?.gender) || getStoredGender() || "female");
+    }
+
+    window.addEventListener(GENDER_EVENT_NAME, handleGenderChange);
+    window.addEventListener("storage", handleGenderChange);
+    return () => {
+      window.removeEventListener(GENDER_EVENT_NAME, handleGenderChange);
+      window.removeEventListener("storage", handleGenderChange);
+    };
+  }, []);
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
 
-    normalizeCharacterImages(root);
+    root.querySelectorAll("img.msio-character-img").forEach((image) => {
+      image.dataset.msciNormalizedSrc = "";
+    });
+
+    normalizeCharacterImages(root, preferredGender);
 
     const observer = new MutationObserver(() => {
-      normalizeCharacterImages(root);
+      normalizeCharacterImages(root, preferredGender);
     });
 
     observer.observe(root, {
@@ -229,7 +324,7 @@ function CleanCharacterBuilder(props) {
     });
 
     return () => observer.disconnect();
-  }, []);
+  }, [preferredGender]);
 
   return (
     <div ref={rootRef} className="clean-character-builder">
@@ -238,7 +333,7 @@ function CleanCharacterBuilder(props) {
           display: none !important;
         }
       `}</style>
-      {isPirate ? <PirateCharacterBuilder {...props} /> : <FastCharacterBuilder {...props} />}
+      {isPirate ? <PirateCharacterBuilder {...props} preferredGender={preferredGender} /> : <FastCharacterBuilder {...props} />}
     </div>
   );
 }
