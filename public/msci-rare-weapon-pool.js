@@ -1,13 +1,15 @@
 (() => {
-  const DATA_CACHE_BUSTER = "rare-weapon-pool-20260503";
+  const DATA_CACHE_BUSTER = "rare-equipment-pool-20260503-zakum";
   const GUIDEBOOK_DATA_BASE = "https://raw.githubusercontent.com/sduckyduck/osms-classic-guidebook/main/public/data";
   const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json?v=${DATA_CACHE_BUSTER}`;
   const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv?v=${DATA_CACHE_BUSTER}`;
   const RARE_WEAPON_ROLL = 0.08;
+  const LEGENDARY_HAT_ROLL = 0.01;
   const RETRY_DELAY_MS = 220;
   const RECHECK_DELAY_MS = 900;
 
   const TWO_HAND_WEAPON_PREFIXES = ["140", "141", "142", "143", "144", "146"];
+  const HAT_ID_PREFIXES = ["100"];
   const WEAPON_ID_PREFIXES = [
     "130", "131", "132", "133", "137", "138", "140", "141", "142", "143", "144", "145", "146", "147", "148", "149",
   ];
@@ -52,6 +54,12 @@
     "concerto", "dragon revolver", "maple gun", "maple storm pistol", "pistol",
   ].map(normalizeName);
 
+  // 扎昆头盔 / Zakum Helmet: all classes can roll it, but at the lowest visible rate.
+  const LEGENDARY_HAT_NAME_HINTS = ["zakum helmet", "zakum helm", "zakum", "扎昆", "砝坤"].map(normalizeName);
+  const FALLBACK_LEGENDARY_HATS = [
+    { id: 1002357, guidebookId: 1002357, name: "Zakum Helmet", normalizedName: "zakum helmet", slot: "Hat", reqLevel: 50, weaponType: "" },
+  ];
+
   let rareDataPromise = null;
   let rarePools = null;
 
@@ -65,7 +73,7 @@
     return String(value || "")
       .toLowerCase()
       .replace(/['’]/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -141,7 +149,9 @@
 
   function normalizeSlot(slot) {
     const value = String(slot || "").toLowerCase();
-    return value.includes("weapon") ? "Weapon" : "Unknown";
+    if (value.includes("weapon")) return "Weapon";
+    if (value.includes("cap") || value.includes("hat") || value.includes("helmet")) return "Hat";
+    return "Unknown";
   }
 
   function makeEquipmentRecord(item, msioMap) {
@@ -193,12 +203,34 @@
     return RARE_NAME_HINTS.some((hint) => hint && name.includes(hint));
   }
 
+  function hasLegendaryHatHint(item) {
+    const name = item?.normalizedName || normalizeName(item?.name);
+    if (!name) return false;
+    return LEGENDARY_HAT_NAME_HINTS.some((hint) => hint && name.includes(hint));
+  }
+
   function isRareWeaponCandidate(item) {
     if (!item || item.slot !== "Weapon") return false;
     const level = toNumber(item.reqLevel, 0);
     const name = item.normalizedName || normalizeName(item.name);
     const isMapleWeapon = name.includes("maple") && !name.includes("cape") && !name.includes("shield");
     return hasRareNameHint(item) || isMapleWeapon || (level >= 70 && level <= 100);
+  }
+
+  function isLegendaryHatCandidate(item) {
+    return item?.slot === "Hat" && hasLegendaryHatHint(item);
+  }
+
+  function dedupeById(items) {
+    const seen = new Set();
+    const out = [];
+    for (const item of items || []) {
+      const key = String(item?.id || "");
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
   }
 
   function randomItem(items) {
@@ -217,24 +249,33 @@
         const msioMap = buildMsioMap(parseCsv(mapText));
         const records = rows
           .map((item) => makeEquipmentRecord(item, msioMap))
-          .filter(isRareWeaponCandidate);
+          .filter(Boolean);
 
-        rarePools = Object.fromEntries(
-          Object.entries(ROLE_RULES).map(([roleCode, rule]) => {
-            const pool = records.filter((item) => (rule.weaponKinds || []).some((kind) => weaponMatchesKind(item, kind)));
-            return [roleCode, pool];
-          })
-        );
+        const rareWeapons = records.filter(isRareWeaponCandidate);
+        const legendaryHats = dedupeById([...records.filter(isLegendaryHatCandidate), ...FALLBACK_LEGENDARY_HATS]);
+
+        rarePools = {
+          weapons: Object.fromEntries(
+            Object.entries(ROLE_RULES).map(([roleCode, rule]) => {
+              const pool = rareWeapons.filter((item) => (rule.weaponKinds || []).some((kind) => weaponMatchesKind(item, kind)));
+              return [roleCode, pool];
+            })
+          ),
+          hats: legendaryHats,
+        };
 
         window.MSCI_RARE_WEAPON_POOL = {
-          roll: RARE_WEAPON_ROLL,
-          pools: rarePools,
+          weaponRoll: RARE_WEAPON_ROLL,
+          legendaryHatRoll: LEGENDARY_HAT_ROLL,
+          pools: rarePools.weapons,
+          hats: rarePools.hats,
           list: Object.fromEntries(
-            Object.entries(rarePools).map(([roleCode, pool]) => [
+            Object.entries(rarePools.weapons).map(([roleCode, pool]) => [
               roleCode,
               pool.map((item) => ({ id: item.id, name: item.name, level: item.reqLevel, type: item.weaponType })),
             ])
           ),
+          legendaryHatList: rarePools.hats.map((item) => ({ id: item.id, name: item.name, level: item.reqLevel })),
         };
 
         return rarePools;
@@ -256,6 +297,11 @@
     return WEAPON_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
   }
 
+  function isHatId(value) {
+    const id = idPart(value);
+    return HAT_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
+  }
+
   function actionForWeapon(roleCode, weaponId) {
     if (roleCode === "SNIP") return "stand2";
     if (["KITE", "ZAPZ", "TOXI", "HEAL", "STAR", "STAB", "SHLD", "BRAW", "GUNS"].includes(roleCode)) return "stand1";
@@ -263,7 +309,7 @@
     return TWO_HAND_WEAPON_PREFIXES.some((prefix) => id.startsWith(prefix)) ? "stand2" : "stand1";
   }
 
-  function replaceWeaponInCharacterUrl(src, roleCode, rareWeapon) {
+  function updateCharacterUrlEntries(src, updater, roleCode, weaponId = null) {
     const url = new URL(src);
     const parts = url.pathname.split("/");
     const skinIndex = parts.findIndex((part) => part === "2000");
@@ -274,17 +320,33 @@
     const entries = decodeURIComponent(parts[itemIndex])
       .split(",")
       .map((entry) => entry.trim())
-      .filter(Boolean)
-      .filter((entry) => !isWeaponId(entry));
+      .filter(Boolean);
 
-    entries.push(String(rareWeapon.id));
-    parts[itemIndex] = encodeURIComponent(entries.join(","));
-    if (parts[actionIndex]) parts[actionIndex] = encodeURIComponent(actionForWeapon(roleCode, rareWeapon.id));
+    parts[itemIndex] = encodeURIComponent(updater(entries).join(","));
+    if (weaponId && parts[actionIndex]) parts[actionIndex] = encodeURIComponent(actionForWeapon(roleCode, weaponId));
     url.pathname = parts.join("/");
     return url.toString();
   }
 
-  async function maybeApplyRareWeapon(img) {
+  function replaceWeaponInCharacterUrl(src, roleCode, rareWeapon) {
+    return updateCharacterUrlEntries(
+      src,
+      (entries) => [...entries.filter((entry) => !isWeaponId(entry)), String(rareWeapon.id)],
+      roleCode,
+      rareWeapon.id
+    );
+  }
+
+  function replaceHatInCharacterUrl(src, legendaryHat) {
+    return updateCharacterUrlEntries(
+      src,
+      (entries) => [...entries.filter((entry) => !isHatId(entry)), String(legendaryHat.id)],
+      null,
+      null
+    );
+  }
+
+  async function maybeApplyRareEquipment(img) {
     if (!img || !img.classList?.contains("msio-character-img")) return;
     const currentSrc = img.currentSrc || img.src || "";
     if (!currentSrc || img.dataset.msciRareCheckedSrc === currentSrc || img.dataset.msciRareAppliedSrc === currentSrc) return;
@@ -292,28 +354,47 @@
     img.dataset.msciRareCheckedSrc = currentSrc;
     const roleCode = findRoleCode(img);
     const rule = ROLE_RULES[roleCode];
-    if (!rule || Math.random() >= RARE_WEAPON_ROLL) return;
+    if (!rule) return;
+
+    const shouldRollLegendaryHat = Math.random() < LEGENDARY_HAT_ROLL;
+    const shouldRollRareWeapon = Math.random() < RARE_WEAPON_ROLL;
+    if (!shouldRollLegendaryHat && !shouldRollRareWeapon) return;
 
     try {
       const pools = await loadRarePools();
-      const rareWeapon = randomItem(pools?.[roleCode] || []);
-      if (!rareWeapon) return;
+      let nextSrc = currentSrc;
+      const applied = [];
 
-      const rareSrc = replaceWeaponInCharacterUrl(currentSrc, roleCode, rareWeapon);
-      if (rareSrc && rareSrc !== currentSrc) {
+      if (shouldRollLegendaryHat) {
+        const legendaryHat = randomItem(pools?.hats || []);
+        if (legendaryHat) {
+          nextSrc = replaceHatInCharacterUrl(nextSrc, legendaryHat);
+          applied.push(`hat: ${legendaryHat.name} (${legendaryHat.id})`);
+        }
+      }
+
+      if (shouldRollRareWeapon) {
+        const rareWeapon = randomItem(pools?.weapons?.[roleCode] || []);
+        if (rareWeapon) {
+          nextSrc = replaceWeaponInCharacterUrl(nextSrc, roleCode, rareWeapon);
+          applied.push(`weapon: ${rareWeapon.name} (${rareWeapon.id})`);
+        }
+      }
+
+      if (nextSrc && nextSrc !== currentSrc) {
         img.dataset.msciOriginalSrc = currentSrc;
-        img.dataset.msciRareWeapon = `${rareWeapon.name} (${rareWeapon.id})`;
-        img.dataset.msciRareAppliedSrc = rareSrc;
-        img.src = rareSrc;
+        img.dataset.msciRareEquipment = applied.join("; ");
+        img.dataset.msciRareAppliedSrc = nextSrc;
+        img.src = nextSrc;
       }
     } catch (error) {
-      console.warn("MSCI rare weapon pool failed:", error);
+      console.warn("MSCI rare equipment pool failed:", error);
     }
   }
 
   function scan() {
     document.querySelectorAll("img.msio-character-img").forEach((img) => {
-      window.setTimeout(() => maybeApplyRareWeapon(img), RETRY_DELAY_MS);
+      window.setTimeout(() => maybeApplyRareEquipment(img), RETRY_DELAY_MS);
     });
   }
 
@@ -327,13 +408,13 @@
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === "attributes" && mutation.target?.classList?.contains("msio-character-img")) {
-          window.setTimeout(() => maybeApplyRareWeapon(mutation.target), RETRY_DELAY_MS);
+          window.setTimeout(() => maybeApplyRareEquipment(mutation.target), RETRY_DELAY_MS);
         }
         mutation.addedNodes?.forEach((node) => {
           if (!(node instanceof Element)) return;
-          if (node.matches?.("img.msio-character-img")) window.setTimeout(() => maybeApplyRareWeapon(node), RETRY_DELAY_MS);
+          if (node.matches?.("img.msio-character-img")) window.setTimeout(() => maybeApplyRareEquipment(node), RETRY_DELAY_MS);
           node.querySelectorAll?.("img.msio-character-img").forEach((img) => {
-            window.setTimeout(() => maybeApplyRareWeapon(img), RETRY_DELAY_MS);
+            window.setTimeout(() => maybeApplyRareEquipment(img), RETRY_DELAY_MS);
           });
         });
       }
