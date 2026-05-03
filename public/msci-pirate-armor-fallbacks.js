@@ -83,8 +83,9 @@
     const parts = url.pathname.split("/");
     const skinIndex = parts.findIndex((part) => part === "2000");
     const itemIndex = skinIndex + 1;
+    const actionIndex = skinIndex + 2;
     if (skinIndex < 0 || !parts[itemIndex]) return null;
-    return { url, parts, itemIndex };
+    return { url, parts, itemIndex, actionIndex };
   }
 
   function parseEntries(src) {
@@ -96,12 +97,22 @@
       .filter(Boolean);
   }
 
+  function forceStand1(src) {
+    const parsed = getCharacterUrlParts(src);
+    if (!parsed) return src;
+    const { url, parts, actionIndex } = parsed;
+    if (parts[actionIndex]) parts[actionIndex] = "stand1";
+    url.pathname = parts.join("/");
+    return url.toString();
+  }
+
   function replaceEntries(src, updater) {
     const parsed = getCharacterUrlParts(src);
     if (!parsed) return src;
-    const { url, parts, itemIndex } = parsed;
+    const { url, parts, itemIndex, actionIndex } = parsed;
     const entries = parseEntries(src);
     parts[itemIndex] = encodeURIComponent(updater(entries).join(","));
+    if (parts[actionIndex]) parts[actionIndex] = "stand1";
     url.pathname = parts.join("/");
     return url.toString();
   }
@@ -157,8 +168,10 @@
       return nextEntries;
     });
 
+    nextSrc = forceStand1(nextSrc);
     if (!nextSrc || nextSrc === currentSrc) return;
     img.dataset.msciPirateArmor = applied.join("; ");
+    img.dataset.msciPirateAction = "stand1";
     img.dataset.msciPirateArmorAppliedSrc = nextSrc;
     img.dataset.msciEqualCheckedSrc = nextSrc;
     img.dataset.msciEqualAppliedSrc = nextSrc;
@@ -216,6 +229,7 @@
       armorBySlot: PIRATE_ARMOR_BY_SLOT,
       scan,
       listArmor,
+      forceStand1,
     };
   }
 })();
