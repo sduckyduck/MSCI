@@ -4,22 +4,15 @@
   const WEAPON_ID_PREFIXES = [
     "130", "131", "132", "133", "137", "138", "140", "141", "142", "143", "144", "145", "146", "147", "148", "149",
   ];
+  const HAT_ID_PREFIXES = ["100"];
   const TWO_HAND_WEAPON_PREFIXES = ["140", "141", "142", "143", "144", "146"];
 
   const MAGE_WEAPONS = [
     { id: 1372034, name: "Maple Shine Wand", reqLevel: 64, weaponType: "Wand" },
-    { id: 1372035, name: "Elemental Wand 1", reqLevel: 70, weaponType: "Wand" },
-    { id: 1372036, name: "Elemental Wand 2", reqLevel: 70, weaponType: "Wand" },
-    { id: 1372037, name: "Elemental Wand 3", reqLevel: 70, weaponType: "Wand" },
-    { id: 1372038, name: "Elemental Wand 4", reqLevel: 70, weaponType: "Wand" },
     { id: 1372010, name: "Dimon Wand", reqLevel: 98, weaponType: "Wand" },
     { id: 1382007, name: "Evil Wings", reqLevel: 65, weaponType: "Staff" },
     { id: 1382037, name: "Doomsday Staff", reqLevel: 102, weaponType: "Staff" },
     { id: 1382039, name: "Maple Wisdom Staff", reqLevel: 64, weaponType: "Staff" },
-    { id: 1382045, name: "Elemental Staff 1", reqLevel: 103, weaponType: "Staff" },
-    { id: 1382046, name: "Elemental Staff 2", reqLevel: 103, weaponType: "Staff" },
-    { id: 1382047, name: "Elemental Staff 3", reqLevel: 103, weaponType: "Staff" },
-    { id: 1382048, name: "Elemental Staff 4", reqLevel: 103, weaponType: "Staff" },
   ];
 
   const FALLBACK_WEAPONS_BY_ROLE = {
@@ -137,6 +130,11 @@
     return WEAPON_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
   }
 
+  function isHatId(value) {
+    const id = idPart(value);
+    return HAT_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
+  }
+
   function dedupeById(items) {
     const seen = new Set();
     const out = [];
@@ -169,6 +167,19 @@
     const actionIndex = skinIndex + 2;
     if (skinIndex < 0 || !parts[itemIndex]) return null;
     return { url, parts, itemIndex, actionIndex };
+  }
+
+  function readCharacterEntries(src) {
+    const parsed = getCharacterUrlParts(src);
+    if (!parsed) return [];
+    return decodeURIComponent(parsed.parts[parsed.itemIndex])
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  function stableEntriesKey(entries) {
+    return (entries || []).filter((entry) => !isHatId(entry)).join(",");
   }
 
   function replaceWeaponInCharacterUrl(src, roleCode, weapon) {
@@ -223,6 +234,17 @@
     const currentSrc = img.currentSrc || img.src || "";
     if (!currentSrc || img.dataset.msciFallbackAppliedSrc === currentSrc) return;
 
+    const entries = readCharacterEntries(currentSrc);
+    const currentStableKey = stableEntriesKey(entries);
+    if (
+      !currentStableKey ||
+      img.dataset.msciFallbackCheckedStableKey === currentStableKey ||
+      img.dataset.msciFallbackAppliedStableKey === currentStableKey
+    ) {
+      return;
+    }
+    img.dataset.msciFallbackCheckedStableKey = currentStableKey;
+
     const roleCode = String(currentRole(img) || "").toUpperCase();
     const pool = getAugmentedWeaponPool(roleCode);
     if (!pool.length) return;
@@ -233,10 +255,14 @@
     const nextSrc = replaceWeaponInCharacterUrl(currentSrc, roleCode, weapon);
     if (!nextSrc || nextSrc === currentSrc) return;
 
+    const nextStableKey = stableEntriesKey(readCharacterEntries(nextSrc));
     img.dataset.msciFallbackWeapon = `${weapon.name} (${weapon.id})`;
     img.dataset.msciFallbackAppliedSrc = nextSrc;
+    img.dataset.msciFallbackAppliedStableKey = nextStableKey;
     img.dataset.msciEqualCheckedSrc = nextSrc;
     img.dataset.msciEqualAppliedSrc = nextSrc;
+    img.dataset.msciEqualCheckedStableKey = nextStableKey;
+    img.dataset.msciEqualAppliedStableKey = nextStableKey;
     img.src = nextSrc;
   }
 
