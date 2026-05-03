@@ -140,17 +140,7 @@ function getFaceEmote(faceEntry, fallback = "default") {
   return parts[1] || fallback;
 }
 
-function itemAllowedForGender(entry, gender) {
-  const id = Number(String(entry || "").split(":")[0]);
-  if (!Number.isFinite(id)) return true;
-
-  const prefix = String(id).slice(0, 4);
-  if (gender === "male") return !["1041", "1051", "1061"].includes(prefix);
-  if (gender === "female") return !["1040", "1050", "1060"].includes(prefix);
-  return true;
-}
-
-function normalizeCharacterUrl(currentSrc, preferredGender) {
+function normalizeCharacterUrl(currentSrc) {
   const src = String(currentSrc || "");
   if (!src.includes("/Character/")) return src;
 
@@ -162,14 +152,12 @@ function normalizeCharacterUrl(currentSrc, preferredGender) {
         .map((entry) => entry.trim())
         .filter(Boolean);
 
-      const gender = normalizeGender(preferredGender) || inferGenderFromHairId(entries[0]) || "female";
+      const gender = inferGenderFromHairId(entries[0]) || "female";
       const faceEmote = getFaceEmote(entries[1]);
-      const equipmentEntries = entries.slice(2).filter((entry) => itemAllowedForGender(entry, gender));
-
       const normalizedEntries = [
         String(randomFrom(HAIR_COLOR_POOLS[gender])),
         `${randomFrom(FACE_IDS[gender])}:${faceEmote}`,
-        ...equipmentEntries,
+        ...entries.slice(2),
       ];
 
       return `${characterPrefix}${FIXED_SKIN_ID}${slash}${encodeURIComponent(normalizedEntries.join(","))}${actionSegment}${query}`;
@@ -177,26 +165,39 @@ function normalizeCharacterUrl(currentSrc, preferredGender) {
   );
 }
 
-function normalizeCharacterImages(root, preferredGender) {
+function normalizeCharacterImages(root) {
   if (!root) return;
 
   root.querySelectorAll("img.msio-character-img").forEach((image) => {
     const currentSrc = image.getAttribute("src") || "";
-    const normalizedGender = normalizeGender(preferredGender) || "female";
     if (!currentSrc) return;
 
-    if (image.dataset.msciNormalizedGender === normalizedGender && image.dataset.msciNormalizedSrc === currentSrc) {
-      return;
-    }
+    if (image.dataset.msciNormalizedSrc === currentSrc) return;
 
-    const nextSrc = normalizeCharacterUrl(currentSrc, normalizedGender);
-    image.dataset.msciNormalizedGender = normalizedGender;
+    const nextSrc = normalizeCharacterUrl(currentSrc);
     image.dataset.msciNormalizedSrc = nextSrc || currentSrc;
 
     if (nextSrc && nextSrc !== currentSrc) {
       image.setAttribute("src", nextSrc);
     }
   });
+}
+
+function syncNativeGenderSelect(root, preferredGender) {
+  const gender = normalizeGender(preferredGender);
+  if (!root || !gender) return;
+
+  const selects = Array.from(root.querySelectorAll("select"));
+  const genderSelect = selects.find((select) => {
+    const values = Array.from(select.options || []).map((option) => option.value);
+    return values.includes("male") && values.includes("female");
+  });
+
+  if (!genderSelect || genderSelect.value === gender) return;
+
+  genderSelect.value = gender;
+  genderSelect.dispatchEvent(new Event("input", { bubbles: true }));
+  genderSelect.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function normalizeLegacyFaceEmote(emote) {
@@ -312,20 +313,21 @@ function CleanCharacterBuilder(props) {
 
     root.querySelectorAll("img.msio-character-img").forEach((image) => {
       image.dataset.msciNormalizedSrc = "";
-      image.dataset.msciNormalizedGender = "";
     });
 
-    normalizeCharacterImages(root, preferredGender);
+    syncNativeGenderSelect(root, preferredGender);
+    normalizeCharacterImages(root);
 
     const observer = new MutationObserver(() => {
-      normalizeCharacterImages(root, preferredGender);
+      syncNativeGenderSelect(root, preferredGender);
+      normalizeCharacterImages(root);
     });
 
     observer.observe(root, {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ["src"],
+      attributeFilter: ["src", "value"],
     });
 
     return () => observer.disconnect();
