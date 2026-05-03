@@ -214,11 +214,10 @@ function normalizeCharacterImages(root, hideHat = false) {
 
     const baseSrc = image.dataset.msciBaseCharacterSrc;
     const nextSrc = applyHatVisibilityToUrl(baseSrc, hideHat);
-    image.dataset.msciDisplayCharacterSrc = nextSrc;
+    if (!nextSrc || nextSrc === previousDisplaySrc) return;
 
-    if (nextSrc && nextSrc !== currentSrc) {
-      image.setAttribute("src", nextSrc);
-    }
+    image.dataset.msciDisplayCharacterSrc = nextSrc;
+    if (nextSrc !== currentSrc) image.setAttribute("src", nextSrc);
   });
 }
 
@@ -248,9 +247,9 @@ function hideNativeGenderControl(root) {
   const block = label || genderSelect.parentElement;
   if (!block) return;
 
-  block.dataset.exportHidden = "true";
-  block.dataset.html2canvasIgnore = "true";
-  block.style.display = "none";
+  if (block.dataset.exportHidden !== "true") block.dataset.exportHidden = "true";
+  if (block.dataset.html2canvasIgnore !== "true") block.dataset.html2canvasIgnore = "true";
+  if (block.style.display !== "none") block.style.display = "none";
 }
 
 function syncHideHatButton(root, hideHat, onToggle) {
@@ -275,8 +274,11 @@ function syncHideHatButton(root, hideHat, onToggle) {
     targetGroup.appendChild(button);
   }
 
-  button.textContent = hideHat ? "显示帽子" : "隐藏帽子";
-  button.classList.toggle("active", Boolean(hideHat));
+  const label = hideHat ? "显示帽子" : "隐藏帽子";
+  if (button.textContent !== label) button.textContent = label;
+  if (button.classList.contains("active") !== Boolean(hideHat)) {
+    button.classList.toggle("active", Boolean(hideHat));
+  }
   button.onclick = onToggle;
 }
 
@@ -361,6 +363,7 @@ function PirateCharacterBuilder({ profile, preferredGender }) {
 
 function CleanCharacterBuilder(props) {
   const rootRef = useRef(null);
+  const rafRef = useRef(0);
   const roleCode = String(props?.profile?.code || "").trim().toUpperCase();
   const isPirate = PIRATE_ROLE_CODES.has(roleCode);
   const [preferredGender, setPreferredGender] = useState(() => getStoredGender() || "female");
@@ -404,18 +407,24 @@ function CleanCharacterBuilder(props) {
     const root = rootRef.current;
     if (!root) return undefined;
 
-    syncNativeGenderSelect(root, preferredGender);
-    hideNativeGenderControl(root);
-    syncHideHatButton(root, hideHat, toggleHideHat);
-    normalizeCharacterImages(root, hideHat);
-
-    const observer = new MutationObserver(() => {
+    const syncAll = () => {
       syncNativeGenderSelect(root, preferredGender);
       hideNativeGenderControl(root);
       syncHideHatButton(root, hideHat, toggleHideHat);
       normalizeCharacterImages(root, hideHat);
-    });
+    };
 
+    const scheduleSync = () => {
+      if (rafRef.current) return;
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = 0;
+        syncAll();
+      });
+    };
+
+    syncAll();
+
+    const observer = new MutationObserver(scheduleSync);
     observer.observe(root, {
       subtree: true,
       childList: true,
@@ -423,7 +432,13 @@ function CleanCharacterBuilder(props) {
       attributeFilter: ["src", "value"],
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (rafRef.current) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+    };
   }, [preferredGender, hideHat, builderResetKey]);
 
   return (
