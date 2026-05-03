@@ -128,12 +128,10 @@ function scrollPageToTop() {
 
 function shuffleQuestions(questions) {
   const shuffled = [...(questions || [])];
-
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
     const swapIndex = Math.floor(Math.random() * (index + 1));
     [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
   }
-
   return shuffled;
 }
 
@@ -146,7 +144,6 @@ async function waitForImages(target) {
   await Promise.all(
     images.map((image) => {
       if (image.complete) return Promise.resolve();
-
       return new Promise((resolve) => {
         let done = false;
         const finish = () => {
@@ -156,7 +153,6 @@ async function waitForImages(target) {
           image.removeEventListener("error", finish);
           resolve();
         };
-
         image.addEventListener("load", finish, { once: true });
         image.addEventListener("error", finish, { once: true });
         window.setTimeout(finish, 2600);
@@ -241,7 +237,6 @@ function ModeSelector({ value, onChange }) {
 function ProgressDots({ questions, responses, currentIndex, onJump }) {
   const doneCount = questions.length - getMissingQuestionCount(questions, responses);
   const percent = questions.length ? Math.round((doneCount / questions.length) * 100) : 0;
-
   return (
     <section className="progress-panel" aria-label="答题进度">
       <div className="progress-head">
@@ -272,7 +267,6 @@ function ProgressDots({ questions, responses, currentIndex, onJump }) {
 function QuestionCard({ question, value, onChange, index }) {
   const options = question.options || [];
   const isCoreQuestion = (question.weight ?? 1) >= 1;
-
   return (
     <article className="wizard-card">
       <div className="wizard-meta">
@@ -306,9 +300,7 @@ function RankingTable({ results }) {
           <span className="rank-number">#{index + 1}</span>
           <div>
             <b>{resultProfiles[result.id]?.personaName || result.name}</b>
-            <small>
-              {jobDisplayNames[result.id] || result.name} / 原始分 {result.score}
-            </small>
+            <small>{jobDisplayNames[result.id] || result.name} / 原始分 {result.score}</small>
           </div>
           <span className="rank-score">{result.matchPercent}%</span>
         </div>
@@ -319,7 +311,6 @@ function RankingTable({ results }) {
 
 function TraitRanking({ traits }) {
   const topTraits = (traits || []).slice(0, 6);
-
   return (
     <div className="ranking-table">
       {topTraits.map((trait, index) => (
@@ -367,11 +358,10 @@ function ExportShareCard({ captureRef, result, firstResult, secondResult, scoreR
   const firstRows = scoreResult.firstRanking.slice(0, 4);
   const secondRows = scoreResult.secondRanking.slice(0, 3);
   const traitRows = scoreResult.traitRanking.slice(0, 4);
-
   return (
     <div ref={captureRef} className="export-share-card">
       <div className="export-card-header">
-        <p>MapleStory Class Indicator · V2</p>
+        <p>MapleStory Class Indicator</p>
         <h1>你的{modeLabel}职业人格是</h1>
       </div>
 
@@ -404,7 +394,7 @@ function ExportShareCard({ captureRef, result, firstResult, secondResult, scoreR
       <footer className="export-footer">
         <span>一转：{jobDisplayNames[firstResult?.id] || "—"}</span>
         <span>二转：{result.name}</span>
-        <span>MSCI Test</span>
+        <span>🐥 @奇怪小鸭</span>
       </footer>
     </div>
   );
@@ -421,7 +411,7 @@ function ResultHero({ result, firstResult, secondResult, confidence, modeLabel }
         <p className="result-slogan">{result.slogan}</p>
       </div>
       <div className="result-info-panel">
-        <p className="eyebrow">V2 题库结果</p>
+        <p className="eyebrow">题库结果</p>
         <h3>{result.code}（{result.name}）</h3>
         <p>{result.description}</p>
         <div className="match-pill">
@@ -444,16 +434,14 @@ function TestWizard({ questions, responses, currentIndex, setCurrentIndex, onAns
   function handleAnswer(questionId, value) {
     onAnswer(questionId, value);
     const isLastQuestion = currentIndex >= questions.length - 1;
-    if (!isLastQuestion) {
-      window.setTimeout(() => setCurrentIndex(currentIndex + 1), 160);
-    }
+    if (!isLastQuestion) window.setTimeout(() => setCurrentIndex(currentIndex + 1), 160);
   }
 
   return (
     <section className="wizard-shell">
       <div className="wizard-title-row">
         <div>
-          <p className="eyebrow">MSCI V2</p>
+          <p className="eyebrow">MSCI</p>
           <h1>30 题职业人格测试</h1>
         </div>
         <CompletionBadge missing={getMissingQuestionCount(questions, responses)} total={questions.length} />
@@ -577,7 +565,6 @@ function App() {
   async function saveResultScreenshot() {
     const target = exportCaptureRef.current || resultCaptureRef.current;
     if (!target || isSaving) return;
-
     try {
       setIsSaving(true);
       document.body.classList.add("exporting-png");
@@ -598,12 +585,11 @@ function App() {
           element.dataset?.html2canvasIgnore === "true",
       });
 
-      const fileName = `MSCI-v2-${modeModel.id}-${finalProfile.code || "result"}-9x16.png`;
+      const fileName = `MSCI-${modeModel.id}-${finalProfile.code || "result"}.png`;
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) return;
 
       const file = new File([blob], fileName, { type: "image/png" });
-
       if (navigator.canShare?.({ files: [file] }) && navigator.share) {
         await navigator.share({
           title: "MSCI 冒险岛职业人格测试",
@@ -612,7 +598,6 @@ function App() {
         });
         return;
       }
-
       downloadImage(blob, fileName);
     } finally {
       document.body.classList.remove("exporting-png");
@@ -634,13 +619,13 @@ function App() {
         <section className="intro-card sbti-intro-card mode-aware-intro">
           <div>
             <IntroHeroBanner candidates={modeModel.bannerCandidates} />
-            <p className="eyebrow">MapleStory Class Indicator · V2</p>
+            <p className="eyebrow">MapleStory Class Indicator</p>
             <h1>{modeModel.title}</h1>
             <p>{modeModel.description}</p>
-            <p className="mode-note">30 题 A/B/C/D/E 题库：前 16 题决定核心职业倾向，后 14 题用于补充抽象人格和传播梗感。</p>
+            <p className="mode-note">30 题 A/B/C/D/E 题库：结合游戏行为、组队偏好和生活抽象选择，生成你的冒险岛职业人格。</p>
             <ModeSelector value={mode} onChange={resetForMode} />
           </div>
-          <button className="primary-btn" onClick={startTest}>开始 V2 测试</button>
+          <button className="primary-btn" onClick={startTest}>开始测试</button>
         </section>
       )}
 
@@ -682,7 +667,7 @@ function App() {
 
           <div className="action-row">
             <button className="primary-btn" onClick={saveResultScreenshot} disabled={isSaving}>
-              {isSaving ? "正在生成 9:16 图片..." : "导出 9:16 分享卡片"}
+              {isSaving ? "正在生成 PNG 图片..." : "导出 PNG 图片"}
             </button>
             <button className="primary-btn" onClick={restart}>重新测试</button>
             <button className="ghost-btn" onClick={() => setStage("test")}>调整答案</button>
