@@ -7,6 +7,7 @@ import "./character-builder.css";
 import "./premium-light.css";
 import "./export-stable-preview.css";
 import "./intro-layout.css";
+import "./export-share-card.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
