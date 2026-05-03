@@ -14,26 +14,94 @@ const VISUAL_SLOTS = new Set(["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove
 const TWO_HAND_WEAPON_PREFIXES = ["140", "141", "142", "143", "144", "146"];
 const CLASS_GROUPS = ["warrior", "magician", "archer", "thief", "pirate"];
 
-// MapleStory.io GMS v83 has many extended IDs that render as bald/missing hair.
-// Keep only render-safe base styles and expand colors from those bases.
+// Source: OSMS datamine beauty_coupons.json / Ayumilove classic beauty list.
+// These are black/base style IDs. HAIR_POOLS expands each style to all classic color offsets:
+// Black, Brown, Blonde, Red, Orange, Green, Blue, Purple.
 const SAFE_HAIR_BASE_IDS = {
   male: [
-    30000, 30010, 30020, 30040, 30050, 30060, 30070,
-    30110, 30120, 30140, 30150, 30160, 30170, 30180, 30190,
-    30200, 30210, 30220, 30230, 30240, 30250, 30270, 30290,
-    30300, 30320, 30330, 30340, 30350, 30360, 30370,
+    30000, // Toben Hair
+    30060, // Black Catalyst
+    30100, // Black Fantasy
+    30120, // Black Vincent
+    30140, // Black Topknot
+    30150, // Medium Cornrows
+    30170, // Line Scratch Hair
+    30200, // Black Wind
+    30210, // Black Shaggy Wax
+    30220, // Black Grooovy Do
+    30230, // Black Foil Perm
+    30260, // Caspia Hair
+    30280, // Black Mohecan Shaggy Do
+    30290, // Old Man 'Do
+    30310, // Black Acorn
+    30320, // Black Close-Cropped Afro
+    30010, // Black Zeta
+    30020, // Unkempt Hair
+    30030, // Shaved Hair
+    30070, // Black All Back
+    30080, // Black Military Buzzcut
+    30090, // Black Mohawk
+    30300, // Black Romance
   ],
   female: [
-    31000, 31010, 31020, 31030, 31040, 31050, 31060, 31070, 31080, 31090,
-    31100, 31110, 31120, 31130, 31140, 31150, 31160, 31170, 31180, 31190,
-    31200, 31210, 31220, 31230, 31240, 31250, 31260, 31270, 31280, 31290,
-    31300, 31310, 31320, 31330, 31340, 31350, 31360, 31370, 31380,
+    31030, // Black Polly
+    31040, // Black Edgy
+    31050, // Rockstar Hair
+    31070, // Black Stella
+    31080, // Black Parted Pomp
+    31100, // Mary Hair
+    31110, // Monica Hair
+    31150, // Angelica Hair
+    31160, // Black Lori
+    31170, // Rastafari Hair
+    31260, // Daisy Do Hair
+    31270, // Black Pigtails
+    31280, // Black Ellie
+    31290, // Black Naomi
+    31300, // Chantelle Hair
+    31310, // Black Carla
+    31350, // Black Fourtail Braids
+    31360, // Swooshy Ponytail Hair
+    31380, // Black Stylish Burst Hair
+    31000, // Cutie Hair
   ],
 };
 
 const FACE_IDS = {
-  male: [20000, 20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008, 20009, 20010, 20011, 20012, 20013, 20014],
-  female: [21000, 21001, 21002, 21003, 21004, 21005, 21006, 21007, 21008, 21009, 21010, 21011, 21012, 21013, 21014],
+  male: [
+    20000, // Defiant Face
+    20001, // Confident Face
+    20002, // Prudent Face
+    20003, // Dramatic Face
+    20004, // Rebel's Fire
+    20005, // Alert Face
+    20006, // Babyface Pout
+    20007, // Sad Innocence
+    20008, // Worrisome Glare
+    20009, // Smart Aleck
+    20010, // Wisdom Glance
+    20011, // Cool Guy Gaze
+    20012, // Curious Dog
+    20013, // Insomniac Daze
+    20014, // Look of Wonder
+  ],
+  female: [
+    21000, // Defiant Face
+    21001, // Prudent Face
+    21002, // Intelligent Face
+    21003, // Strong Stare
+    21004, // Angel Glow
+    21005, // Babyface Pout
+    21006, // Pucker Up Face
+    21007, // Dollface Look
+    21008, // Hopeless Gaze
+    21009, // Look of Death
+    21010, // Wisdom Glance
+    21011, // Hypnotized Look
+    21012, // Soul's Window
+    21013, // Wide-eyed Girl
+    21014, // Curious Look
+  ],
 };
 
 const ROLE_PRESETS = {
