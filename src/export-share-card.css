@@ -16,10 +16,7 @@
   padding: 58px 62px 52px;
   overflow: hidden;
   color: #2c1d12;
-  background:
-    radial-gradient(circle at 18% 7%, rgba(255, 255, 255, 0.80), transparent 18%),
-    radial-gradient(circle at 88% 10%, rgba(179, 218, 225, 0.48), transparent 22%),
-    linear-gradient(180deg, #f8fbfa 0%, #eef6ef 48%, #f8edcf 100%);
+  background: #ffffff;
   border: 0;
   border-radius: 0;
   font-family: Inter, "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -49,10 +46,10 @@
 
 .export-hero-card,
 .export-mini-panel {
-  border: 3px solid rgba(115, 127, 139, 0.18);
+  border: 2px solid #ececec;
   border-radius: 40px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 16px 38px rgba(44, 29, 18, 0.09);
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .export-hero-card {
@@ -71,8 +68,9 @@
   place-items: center;
   margin: 0 auto;
   overflow: hidden;
+  border: 2px solid #efefef;
   border-radius: 34px;
-  background: linear-gradient(180deg, #f5f7f7, #e9eeeb);
+  background: #ffffff;
 }
 
 .export-character-frame .clean-character-builder,
@@ -91,9 +89,9 @@
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
-  border-radius: 34px !important;
+  border-radius: 32px !important;
   box-shadow: none !important;
-  background: transparent !important;
+  background: #ffffff !important;
   overflow: hidden !important;
 }
 
@@ -115,7 +113,7 @@
   image-rendering: pixelated;
   transform: scale(1.08) !important;
   transform-origin: center bottom !important;
-  filter: drop-shadow(0 9px 0 rgba(0, 0, 0, 0.10));
+  filter: none !important;
 }
 
 .export-character-frame .character-builder-controls,
@@ -209,9 +207,9 @@
   align-items: center;
   min-height: 76px;
   padding: 12px 14px;
-  border: 2px solid rgba(115, 127, 139, 0.14);
+  border: 2px solid #efefef;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.74);
+  background: #ffffff;
 }
 
 .export-mini-row > span {
@@ -256,9 +254,10 @@
   gap: 16px;
   margin-top: 24px;
   padding: 20px 26px;
+  border: 2px solid #efefef;
   border-radius: 999px;
   color: #59666e;
-  background: rgba(255, 255, 255, 0.66);
+  background: #ffffff;
   font-size: 23px;
   font-weight: 900;
 }
