@@ -141,6 +141,30 @@ function getMissingQuestionCount(questions, responses) {
   return questions.filter((question) => responses[question.id] === undefined).length;
 }
 
+async function waitForImages(target) {
+  const images = Array.from(target?.querySelectorAll?.("img") || []);
+  await Promise.all(
+    images.map((image) => {
+      if (image.complete) return Promise.resolve();
+
+      return new Promise((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          image.removeEventListener("load", finish);
+          image.removeEventListener("error", finish);
+          resolve();
+        };
+
+        image.addEventListener("load", finish, { once: true });
+        image.addEventListener("error", finish, { once: true });
+        window.setTimeout(finish, 2600);
+      });
+    })
+  );
+}
+
 function CompletionBadge({ missing, total }) {
   const done = total - missing;
   return (
@@ -312,6 +336,80 @@ function TraitRanking({ traits }) {
   );
 }
 
+function ExportMiniList({ title, rows, type = "job" }) {
+  return (
+    <section className="export-mini-panel">
+      <h4>{title}</h4>
+      <div className="export-mini-list">
+        {rows.map((row, index) => {
+          const name = type === "trait"
+            ? traitDisplayNames[row.id] || row.name
+            : resultProfiles[row.id]?.personaName || jobDisplayNames[row.id] || row.name;
+          const sub = type === "trait"
+            ? `倾向分 ${row.score}`
+            : `${jobDisplayNames[row.id] || row.name} · ${row.matchPercent}%`;
+          return (
+            <div className="export-mini-row" key={row.id}>
+              <span>#{index + 1}</span>
+              <div>
+                <b>{name}</b>
+                <small>{sub}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ExportShareCard({ captureRef, result, firstResult, secondResult, scoreResult, modeLabel }) {
+  const firstRows = scoreResult.firstRanking.slice(0, 4);
+  const secondRows = scoreResult.secondRanking.slice(0, 3);
+  const traitRows = scoreResult.traitRanking.slice(0, 4);
+
+  return (
+    <div ref={captureRef} className="export-share-card">
+      <div className="export-card-header">
+        <p>MapleStory Class Indicator · V2</p>
+        <h1>你的{modeLabel}职业人格是</h1>
+      </div>
+
+      <section className="export-hero-card">
+        <div className="export-character-side">
+          <div className="export-character-frame">
+            <CharacterBuilder profile={result} />
+          </div>
+        </div>
+        <div className="export-result-side">
+          <p className="export-role-name">{result.name}</p>
+          <h2>{result.personaName}</h2>
+          <strong>{result.code}</strong>
+          <p className="export-slogan">{result.slogan}</p>
+          <div className="export-match-pill">
+            匹配度 {secondResult?.matchPercent || 50}% · 置信度 {scoreResult.secondConfidence.label}
+          </div>
+        </div>
+      </section>
+
+      <p className="export-description">{result.description}</p>
+
+      <div className="export-rank-grid">
+        <ExportMiniList title="一转大类" rows={firstRows} />
+        <ExportMiniList title="二转分支" rows={secondRows} />
+      </div>
+
+      <ExportMiniList title="隐藏人格倾向" rows={traitRows} type="trait" />
+
+      <footer className="export-footer">
+        <span>一转：{jobDisplayNames[firstResult?.id] || "—"}</span>
+        <span>二转：{result.name}</span>
+        <span>MSCI Test</span>
+      </footer>
+    </div>
+  );
+}
+
 function ResultHero({ result, firstResult, secondResult, confidence, modeLabel }) {
   return (
     <section className="result-hero sbti-result-card">
@@ -416,6 +514,7 @@ function App() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const resultCaptureRef = useRef(null);
+  const exportCaptureRef = useRef(null);
 
   const activeQuestions = questionOrder.length ? questionOrder : msciV2Questions;
   const scoreResult = useMemo(() => scoreMsciV2(responses, mode), [responses, mode]);
@@ -476,17 +575,22 @@ function App() {
   }
 
   async function saveResultScreenshot() {
-    const target = resultCaptureRef.current;
+    const target = exportCaptureRef.current || resultCaptureRef.current;
     if (!target || isSaving) return;
 
     try {
       setIsSaving(true);
       document.body.classList.add("exporting-png");
       await new Promise((resolve) => requestAnimationFrame(resolve));
+      await waitForImages(target);
 
       const canvas = await html2canvas(target, {
         backgroundColor: "#eef6ef",
-        scale: Math.min(window.devicePixelRatio || 2, 3),
+        scale: 1,
+        width: 1080,
+        height: 1920,
+        windowWidth: 1080,
+        windowHeight: 1920,
         useCORS: true,
         ignoreElements: (element) =>
           element.classList?.contains("character-builder-controls") ||
@@ -494,7 +598,7 @@ function App() {
           element.dataset?.html2canvasIgnore === "true",
       });
 
-      const fileName = `MSCI-v2-${modeModel.id}-${finalProfile.code || "result"}.png`;
+      const fileName = `MSCI-v2-${modeModel.id}-${finalProfile.code || "result"}-9x16.png`;
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) return;
 
@@ -578,10 +682,21 @@ function App() {
 
           <div className="action-row">
             <button className="primary-btn" onClick={saveResultScreenshot} disabled={isSaving}>
-              {isSaving ? "正在生成截图..." : "导出分享卡片"}
+              {isSaving ? "正在生成 9:16 图片..." : "导出 9:16 分享卡片"}
             </button>
             <button className="primary-btn" onClick={restart}>重新测试</button>
             <button className="ghost-btn" onClick={() => setStage("test")}>调整答案</button>
+          </div>
+
+          <div className="export-share-stage" aria-hidden="true">
+            <ExportShareCard
+              captureRef={exportCaptureRef}
+              result={finalProfile}
+              firstResult={firstResult}
+              secondResult={secondResult}
+              scoreResult={scoreResult}
+              modeLabel={modeModel.label}
+            />
           </div>
         </section>
       )}
