@@ -4,8 +4,15 @@ const MS_REGION = "GMS";
 const MS_VERSION = "83";
 const FIXED_SKIN_ID = 2000;
 const DEFAULT_ACTION = "stand1";
+const DATA_CACHE_BUSTER = "smooth-react-builder-20260503";
+const GUIDEBOOK_DATA_BASE = "https://raw.githubusercontent.com/sduckyduck/osms-classic-guidebook/main/public/data";
+const GUIDEBOOK_ITEMS_URL = `${GUIDEBOOK_DATA_BASE}/items.json?v=${DATA_CACHE_BUSTER}`;
+const GUIDEBOOK_MSIO_MAP_URL = `${GUIDEBOOK_DATA_BASE}/character_item_id_map.csv?v=${DATA_CACHE_BUSTER}`;
 const HAIR_COLOR_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7];
 const EMOTES = ["default", "wink", "smile", "angry", "blink", "bewildered"];
+const VISUAL_SLOTS = new Set(["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Shield", "Weapon"]);
+const TWO_HAND_WEAPON_PREFIXES = ["140", "141", "142", "143", "144", "146"];
+const CLASS_GROUPS = ["warrior", "magician", "archer", "thief", "pirate"];
 
 const HAIR_STYLE_IDS = {
   male: [
@@ -58,39 +65,57 @@ const FACE_IDS = {
 };
 
 const ROLE_PRESETS = {
-  SLAY: { emote: "angry", action: "stand2" },
-  SHLD: { emote: "default", action: "stand1" },
-  POLE: { emote: "default", action: "stand2" },
-  ZAPZ: { emote: "bewildered", action: "stand1" },
-  TOXI: { emote: "wink", action: "stand1" },
-  HEAL: { emote: "smile", action: "stand1" },
-  STAR: { emote: "wink", action: "stand1" },
-  STAB: { emote: "angry", action: "stand1" },
-  KITE: { emote: "default", action: "stand1" },
-  SNIP: { emote: "blink", action: "stand2" },
-  BRAW: { emote: "angry", action: "stand2" },
-  GUNS: { emote: "wink", action: "stand1" },
+  SLAY: { label: "剑客", emote: "angry" },
+  SHLD: { label: "准骑士", emote: "default" },
+  POLE: { label: "枪战士", emote: "default" },
+  ZAPZ: { label: "冰雷法师", emote: "bewildered" },
+  TOXI: { label: "火毒法师", emote: "wink" },
+  HEAL: { label: "牧师", emote: "smile" },
+  STAR: { label: "刺客", emote: "wink" },
+  STAB: { label: "侠盗", emote: "angry" },
+  KITE: { label: "猎人", emote: "default" },
+  SNIP: { label: "弩弓手", emote: "blink" },
+  BRAW: { label: "拳手", emote: "angry" },
+  GUNS: { label: "火枪手", emote: "wink" },
 };
 
-const ROLE_LOADOUTS = {
-  SLAY: [[1002001, 1060016, 1402000], [1002023, 1040021, 1060016, 1402000], [1002047, 1050000, 1402001]],
-  SHLD: [[1002001, 1060016, 1302000, 1092000], [1002023, 1040021, 1060016, 1312000, 1092001], [1002047, 1050000, 1322000, 1092000]],
-  POLE: [[1002001, 1060016, 1432000], [1002023, 1040021, 1060016, 1442000], [1002047, 1050000, 1432001]],
-  ZAPZ: [[1002019, 1050003, 1372000], [1002012, 1050021, 1382000], [1002101, 1050003, 1372001, 1092000]],
-  TOXI: [[1002019, 1050003, 1382000], [1002012, 1050021, 1372000], [1002101, 1050003, 1382001]],
-  HEAL: [[1002019, 1050003, 1372000], [1002012, 1050021, 1382000], [1002101, 1050003, 1372001, 1092000]],
-  STAR: [[1002170, 1060043, 1472000], [1002167, 1040057, 1060043, 1472001], [1002214, 1050025, 1472000]],
-  STAB: [[1002170, 1060043, 1332000, 1092000], [1002167, 1040057, 1060043, 1332001, 1092001], [1002214, 1050025, 1332000]],
-  KITE: [[1002165, 1060056, 1452000], [1002164, 1040067, 1060056, 1452001], [1002213, 1050050, 1452000]],
-  SNIP: [[1002165, 1060056, 1462000], [1002164, 1040067, 1060056, 1462001], [1002213, 1050050, 1462000]],
-  BRAW: [[1002610, 1052095, 1072288, 1482000], [1002613, 1040106, 1060094, 1072288, 1482001], [1482000]],
-  GUNS: [[1002610, 1052095, 1072288, 1492000], [1002613, 1040106, 1060094, 1072288, 1492001], [1492000]],
+const ROLE_RULES = {
+  SLAY: { classGroup: "warrior", weaponKinds: ["2h-sword"], allowShield: false, slots: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Weapon"] },
+  SHLD: { classGroup: "warrior", weaponKinds: ["1h-sword", "1h-axe", "1h-blunt"], allowShield: true, slots: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Weapon", "Shield"] },
+  POLE: { classGroup: "warrior", weaponKinds: ["spear", "pole-arm"], allowShield: false, slots: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Weapon"] },
+  ZAPZ: { classGroup: "magician", weaponKinds: ["wand", "staff"], allowShield: true, slots: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon", "Shield"] },
+  TOXI: { classGroup: "magician", weaponKinds: ["wand", "staff"], allowShield: true, slots: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon", "Shield"] },
+  HEAL: { classGroup: "magician", weaponKinds: ["wand", "staff"], allowShield: true, slots: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon", "Shield"] },
+  STAR: { classGroup: "thief", weaponKinds: ["claw"], allowShield: false, slots: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"] },
+  STAB: { classGroup: "thief", weaponKinds: ["dagger"], allowShield: true, slots: ["Hat", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon", "Shield"] },
+  KITE: { classGroup: "archer", weaponKinds: ["bow"], allowShield: false, slots: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"] },
+  SNIP: { classGroup: "archer", weaponKinds: ["crossbow"], allowShield: false, slots: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Earring", "Weapon"] },
+  BRAW: { classGroup: "pirate", weaponKinds: ["knuckle"], allowShield: false, slots: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Weapon"] },
+  GUNS: { classGroup: "pirate", weaponKinds: ["gun", "pistol"], allowShield: false, slots: ["Hat", "Overall", "Top", "Bottom", "Shoes", "Glove", "Cape", "Weapon"] },
+};
+
+const FALLBACK_EQUIPMENT = {
+  SLAY: [1002001, 1060016, 1402000],
+  SHLD: [1002001, 1060016, 1302000, 1092000],
+  POLE: [1002001, 1060016, 1432000],
+  ZAPZ: [1002019, 1050003, 1372000],
+  TOXI: [1002019, 1050003, 1382000],
+  HEAL: [1002019, 1050003, 1372000],
+  STAR: [1002170, 1060043, 1472000],
+  STAB: [1002170, 1060043, 1332000, 1092000],
+  KITE: [1002165, 1060056, 1452000],
+  SNIP: [1002165, 1060056, 1462000],
+  BRAW: [1002610, 1052095, 1072288, 1482000],
+  GUNS: [1002610, 1052095, 1072288, 1492000],
 };
 
 const HAIR_POOLS = {
   male: expandHairColors(HAIR_STYLE_IDS.male),
   female: expandHairColors(HAIR_STYLE_IDS.female),
 };
+
+let equipmentDataPromise = null;
+let equipmentDataCache = null;
 
 function expandHairColors(styleIds) {
   const out = new Set();
@@ -106,12 +131,300 @@ function normalizeGender(value) {
   return key === "male" || key === "female" ? key : "female";
 }
 
-function randomFrom(items) {
-  return items[Math.floor(Math.random() * items.length)] || items[0];
-}
-
 function normalizeRoleCode(profile) {
   return String(profile?.code || "SLAY").trim().toUpperCase();
+}
+
+function toNumber(value, fallback = null) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const n = Number(String(value).replace(/[,+]/g, "").trim());
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      field += '"';
+      i += 1;
+      continue;
+    }
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (char === "," && !inQuotes) {
+      row.push(field);
+      field = "";
+      continue;
+    }
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") i += 1;
+      row.push(field);
+      field = "";
+      if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
+      row = [];
+      continue;
+    }
+    field += char;
+  }
+
+  row.push(field);
+  if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
+  if (!rows.length) return [];
+
+  const headers = rows[0].map((header) => String(header || "").replace(/^\uFEFF/, "").trim());
+  return rows.slice(1).map((cells) => {
+    const out = {};
+    headers.forEach((header, index) => {
+      out[header] = cells[index] ?? "";
+    });
+    return out;
+  });
+}
+
+function buildMsioMap(rows) {
+  const bySourceId = new Map();
+  const bySourceName = new Map();
+
+  for (const row of rows || []) {
+    const sourceId = toNumber(row.osms_item_id ?? row.source_item_id ?? row.item_id ?? row.id, null);
+    const msioId = toNumber(row.msio_item_id ?? row.mapped_item_id ?? row.target_item_id ?? row.msio_id, null);
+    if (!msioId || msioId <= 0) continue;
+    if (sourceId) bySourceId.set(String(sourceId), msioId);
+
+    const note = String(row.note || row.match_note || "");
+    const sourceNameFromNote = note.match(/^\s*([^>-]+?)\s*->/)?.[1]?.trim();
+    if (sourceNameFromNote) bySourceName.set(normalizeName(sourceNameFromNote), msioId);
+
+    const sourceName = row.osms_item_name || row.source_item_name || row.item_name || row.name;
+    if (sourceName) bySourceName.set(normalizeName(sourceName), msioId);
+  }
+
+  return { bySourceId, bySourceName };
+}
+
+function normalizeSlot(slot) {
+  const value = String(slot || "").toLowerCase();
+  if (value.includes("weapon")) return "Weapon";
+  if (value.includes("cap") || value.includes("hat")) return "Hat";
+  if (value.includes("overall")) return "Overall";
+  if (value.includes("top")) return "Top";
+  if (value.includes("bottom") || value.includes("pants") || value.includes("skirt")) return "Bottom";
+  if (value.includes("shoe")) return "Shoes";
+  if (value.includes("glove")) return "Glove";
+  if (value.includes("cape")) return "Cape";
+  if (value.includes("ear")) return "Earring";
+  if (value.includes("shield")) return "Shield";
+  return "Unknown";
+}
+
+function inferItemGender(item) {
+  const id = String(item?.guidebookId || item?.id || "");
+  if (item?.slot === "Top") {
+    if (id.startsWith("1040")) return "male";
+    if (id.startsWith("1041")) return "female";
+  }
+  if (item?.slot === "Bottom") {
+    if (id.startsWith("1060")) return "male";
+    if (id.startsWith("1061")) return "female";
+  }
+  if (item?.slot === "Overall") {
+    if (id.startsWith("1050")) return "male";
+    if (id.startsWith("1051")) return "female";
+  }
+  return "all";
+}
+
+function makeEquipmentRecord(item, msioMap) {
+  const guidebookId = toNumber(item?.id, null);
+  const name = String(item?.name || "").trim();
+  if (!guidebookId || !name || item?.category !== "Equipment") return null;
+
+  const mappedId = msioMap.bySourceId.get(String(guidebookId)) || msioMap.bySourceName.get(normalizeName(name)) || null;
+  if (!mappedId) return null;
+
+  const record = {
+    id: mappedId,
+    guidebookId,
+    name,
+    className: item.req_job_label || item.requiredJob || item.requiredJobs?.join("/") || "All",
+    slot: normalizeSlot(item.sub_category),
+    reqLevel: toNumber(item.stats?.reqLevel ?? item.reqLevel ?? item.requiredLevel, 0),
+    weaponType: item.weapon_type || item.weaponType || "",
+  };
+
+  record.gender = inferItemGender(record);
+  return record;
+}
+
+async function loadEquipmentData() {
+  if (equipmentDataCache) return equipmentDataCache;
+  if (!equipmentDataPromise) {
+    equipmentDataPromise = Promise.all([
+      fetch(GUIDEBOOK_ITEMS_URL, { cache: "no-store" }).then((res) => {
+        if (!res.ok) throw new Error(`items.json HTTP ${res.status}`);
+        return res.json();
+      }),
+      fetch(GUIDEBOOK_MSIO_MAP_URL, { cache: "no-store" }).then((res) => {
+        if (!res.ok) throw new Error(`character_item_id_map.csv HTTP ${res.status}`);
+        return res.text();
+      }),
+    ]).then(([itemJson, mapText]) => {
+      const rows = Array.isArray(itemJson) ? itemJson : itemJson.items || itemJson.data || [];
+      const msioMap = buildMsioMap(parseCsv(mapText));
+      const records = rows
+        .map((item) => makeEquipmentRecord(item, msioMap))
+        .filter((item) => item && VISUAL_SLOTS.has(item.slot));
+      equipmentDataCache = { records, loadedAt: Date.now() };
+      return equipmentDataCache;
+    });
+  }
+  return equipmentDataPromise;
+}
+
+function classGroupsFromLabel(label) {
+  const value = String(label || "").toLowerCase();
+  const groups = new Set();
+  if (value.includes("warrior") || value.includes("swordman")) groups.add("warrior");
+  if (value.includes("magician") || value.includes("mage") || value.includes("wizard")) groups.add("magician");
+  if (value.includes("archer") || value.includes("bowman")) groups.add("archer");
+  if (value.includes("thief") || value.includes("rogue")) groups.add("thief");
+  if (value.includes("pirate") || value.includes("brawler") || value.includes("gunslinger")) groups.add("pirate");
+  return groups;
+}
+
+function isUniversalClassLabel(label) {
+  const value = String(label || "").trim().toLowerCase();
+  if (!value) return true;
+  if (value === "all" || value === "common" || value === "beginner") return true;
+  if (value.includes("all classes") || value.includes("common") || value.includes("beginner")) return true;
+  const groups = classGroupsFromLabel(value);
+  return CLASS_GROUPS.every((group) => groups.has(group));
+}
+
+function itemIsStrictClassEquipment(item, classGroup) {
+  if (isUniversalClassLabel(item?.className)) return false;
+  const groups = classGroupsFromLabel(item?.className);
+  return groups.size === 1 && groups.has(classGroup);
+}
+
+function itemMatchesGender(item, gender) {
+  return !item?.gender || item.gender === "all" || item.gender === gender;
+}
+
+function getWeaponText(item) {
+  return `${item?.weaponType || ""} ${item?.name || ""}`.toLowerCase();
+}
+
+function weaponMatchesKind(item, kind) {
+  const text = getWeaponText(item);
+  if (kind === "2h-sword") return (text.includes("2h sword") || text.includes("two-handed sword") || text.includes("two handed sword")) && !text.includes("1h");
+  if (kind === "1h-sword") return (text.includes("1h sword") || text.includes("one-handed sword") || text.includes("one handed sword")) && !text.includes("2h");
+  if (kind === "1h-axe") return (text.includes("1h axe") || text.includes("one-handed axe") || text.includes("one handed axe")) && !text.includes("2h");
+  if (kind === "1h-blunt") return (text.includes("1h blunt") || text.includes("one-handed blunt") || text.includes("one handed blunt") || text.includes("1h bw")) && !text.includes("2h");
+  if (kind === "spear") return text.includes("spear");
+  if (kind === "pole-arm") return text.includes("pole arm") || text.includes("polearm");
+  if (kind === "wand") return text.includes("wand");
+  if (kind === "staff") return text.includes("staff");
+  if (kind === "claw") return text.includes("claw");
+  if (kind === "dagger") return text.includes("dagger");
+  if (kind === "bow") return text.includes("bow") && !text.includes("crossbow") && !text.includes("cross bow");
+  if (kind === "crossbow") return text.includes("crossbow") || text.includes("cross bow");
+  if (kind === "knuckle") return text.includes("knuckle");
+  if (kind === "gun") return text.includes("gun") && !text.includes("stun") && !text.includes("beginner");
+  if (kind === "pistol") return text.includes("pistol");
+  return false;
+}
+
+function itemAllowed(item, roleCode, gender) {
+  const rule = ROLE_RULES[roleCode] || ROLE_RULES.SLAY;
+  if (!item || !VISUAL_SLOTS.has(item.slot)) return false;
+  if (!itemMatchesGender(item, gender)) return false;
+  if (item.slot === "Weapon") return (rule.weaponKinds || []).some((kind) => weaponMatchesKind(item, kind));
+  if (item.slot === "Shield") return Boolean(rule.allowShield) && itemIsStrictClassEquipment(item, rule.classGroup);
+  return itemIsStrictClassEquipment(item, rule.classGroup);
+}
+
+function randomItem(items) {
+  if (!items?.length) return null;
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function chooseBySlot(candidates, slot, selectedIds, targetLevel = null) {
+  const slotItems = candidates.filter((item) => item.slot === slot && !selectedIds.has(String(item.id)));
+  if (!slotItems.length) return null;
+  if (targetLevel !== null) {
+    const nearby = slotItems.filter((item) => Math.abs(toNumber(item.reqLevel, 0) - targetLevel) <= 10);
+    if (nearby.length) return randomItem(nearby);
+  }
+  const level60 = slotItems.filter((item) => toNumber(item.reqLevel, 0) <= 60);
+  return randomItem(level60.length ? level60 : slotItems);
+}
+
+function pickTargetLevel(candidates, rule) {
+  const levels = candidates
+    .filter((item) => rule.slots.includes(item.slot))
+    .map((item) => toNumber(item.reqLevel, 0))
+    .filter((level) => level > 0 && level <= 60);
+  return levels.length ? randomItem(levels) : null;
+}
+
+function makeRandomLoadout(equipmentData, roleCode, gender) {
+  const rule = ROLE_RULES[roleCode] || ROLE_RULES.SLAY;
+  const candidates = (equipmentData?.records || []).filter((item) => itemAllowed(item, roleCode, gender));
+  if (!candidates.length) return FALLBACK_EQUIPMENT[roleCode] || FALLBACK_EQUIPMENT.SLAY;
+
+  const selected = [];
+  const selectedIds = new Set();
+  const targetLevel = pickTargetLevel(candidates, rule);
+
+  function add(item) {
+    if (!item || selectedIds.has(String(item.id))) return null;
+    selected.push(item);
+    selectedIds.add(String(item.id));
+    return item;
+  }
+
+  const weapon = add(chooseBySlot(candidates, "Weapon", selectedIds, targetLevel));
+  const weaponText = getWeaponText(weapon);
+  const mageWithStaff = ["ZAPZ", "TOXI", "HEAL"].includes(roleCode) && weaponText.includes("staff");
+  const hasOverall = candidates.some((item) => item.slot === "Overall");
+  const useOverall = hasOverall && Math.random() < 0.55;
+
+  if (rule.slots.includes("Overall") && useOverall) {
+    add(chooseBySlot(candidates, "Overall", selectedIds, targetLevel));
+  } else {
+    if (rule.slots.includes("Top")) add(chooseBySlot(candidates, "Top", selectedIds, targetLevel));
+    if (rule.slots.includes("Bottom")) add(chooseBySlot(candidates, "Bottom", selectedIds, targetLevel));
+  }
+
+  for (const slot of rule.slots) {
+    if (["Weapon", "Overall", "Top", "Bottom", "Shield"].includes(slot)) continue;
+    if (Math.random() < 0.92) add(chooseBySlot(candidates, slot, selectedIds, targetLevel));
+  }
+
+  if (rule.allowShield && !mageWithStaff && Math.random() < 0.8) {
+    add(chooseBySlot(candidates, "Shield", selectedIds, targetLevel));
+  }
+
+  const ids = selected.map((item) => item.id).filter(Boolean);
+  return ids.length ? ids : FALLBACK_EQUIPMENT[roleCode] || FALLBACK_EQUIPMENT.SLAY;
 }
 
 function normalizeLegacyFaceEmote(emote) {
@@ -130,6 +443,13 @@ function isHatId(id) {
   return String(id || "").startsWith("100");
 }
 
+function actionForEquipment(roleCode, equipmentIds) {
+  if (["KITE", "ZAPZ", "TOXI", "HEAL", "STAR", "STAB", "SHLD", "BRAW", "GUNS"].includes(roleCode)) return "stand1";
+  if (roleCode === "SNIP") return "stand2";
+  const weaponId = String((equipmentIds || []).find((id) => String(id).startsWith("1")) || "");
+  return TWO_HAND_WEAPON_PREFIXES.some((prefix) => weaponId.startsWith(prefix)) ? "stand2" : "stand1";
+}
+
 function buildCharacterUrl(config, hideHat) {
   const faceEmote = normalizeLegacyFaceEmote(config.emote);
   const equipment = hideHat ? config.equipment.filter((id) => !isHatId(id)) : config.equipment;
@@ -139,33 +459,52 @@ function buildCharacterUrl(config, hideHat) {
   return `https://maplestory.io/api/${MS_REGION}/${MS_VERSION}/Character/${FIXED_SKIN_ID}/${itemPath}/${action}/0?resize=3&renderMode=Full&bgColor=0,0,0,0&faceEmote=${encodeURIComponent(faceEmote)}`;
 }
 
-function makeConfig(roleCode, gender, rerollCount) {
+function makeConfig({ roleCode, gender, equipmentData, rerollCount }) {
   const preset = ROLE_PRESETS[roleCode] || ROLE_PRESETS.SLAY;
-  const loadouts = ROLE_LOADOUTS[roleCode] || ROLE_LOADOUTS.SLAY;
-  const equipment = [...randomFrom(loadouts)];
+  const equipment = makeRandomLoadout(equipmentData, roleCode, gender);
   return {
-    hair: randomFrom(HAIR_POOLS[gender]),
-    face: randomFrom(FACE_IDS[gender]),
-    emote: rerollCount === 0 ? preset.emote : randomFrom(EMOTES),
+    hair: randomItem(HAIR_POOLS[gender]) || HAIR_POOLS.female[0],
+    face: randomItem(FACE_IDS[gender]) || FACE_IDS.female[0],
+    emote: rerollCount === 0 ? preset.emote : randomItem(EMOTES),
     equipment,
-    action: preset.action || DEFAULT_ACTION,
+    action: actionForEquipment(roleCode, equipment),
   };
 }
 
 function SmoothCharacterBuilder({ profile, characterGender }) {
   const roleCode = normalizeRoleCode(profile);
   const gender = normalizeGender(characterGender);
+  const preset = ROLE_PRESETS[roleCode] || ROLE_PRESETS.SLAY;
+  const [equipmentData, setEquipmentData] = useState(equipmentDataCache);
   const [rerollCount, setRerollCount] = useState(0);
   const [hideHat, setHideHat] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [config, setConfig] = useState(() => makeConfig(roleCode, gender, 0));
+  const [loadError, setLoadError] = useState("");
+  const [config, setConfig] = useState(() => makeConfig({ roleCode, gender, equipmentData: equipmentDataCache, rerollCount: 0 }));
 
   useEffect(() => {
-    setConfig(makeConfig(roleCode, gender, 0));
+    let cancelled = false;
+    loadEquipmentData()
+      .then((data) => {
+        if (!cancelled) {
+          setEquipmentData(data);
+          setLoadError("");
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error?.message || "装备数据加载失败，暂用备用装备池");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    setConfig(makeConfig({ roleCode, gender, equipmentData, rerollCount: 0 }));
     setRerollCount(0);
     setHideHat(false);
     setImageError(false);
-  }, [roleCode, gender]);
+  }, [roleCode, gender, equipmentData]);
 
   const visibleConfig = useMemo(() => {
     if (!imageError) return config;
@@ -177,7 +516,7 @@ function SmoothCharacterBuilder({ profile, characterGender }) {
   function rerollCharacter() {
     setRerollCount((count) => {
       const nextCount = count + 1;
-      setConfig(makeConfig(roleCode, gender, nextCount));
+      setConfig(makeConfig({ roleCode, gender, equipmentData, rerollCount: nextCount }));
       setHideHat(false);
       setImageError(false);
       return nextCount;
@@ -185,28 +524,42 @@ function SmoothCharacterBuilder({ profile, characterGender }) {
   }
 
   return (
-    <div className="clean-character-builder smooth-character-builder">
-      <div className="builder-preview-frame">
-        <img
-          className="msio-character-img"
-          src={imageUrl}
-          alt={`${profile?.name || roleCode} 角色预览`}
-          draggable="false"
-          onError={() => setImageError(true)}
-        />
+    <div className="character-builder smooth-character-builder">
+      <div className="character-preview-card">
+        <div className="character-preview-bg" data-role={roleCode}>
+          {imageError && !visibleConfig.equipment.length ? (
+            <div className="msio-error-card">
+              <b>角色预览加载失败</b>
+              <span>MapleStory.io 暂时没有返回这个组合。</span>
+            </div>
+          ) : (
+            <img
+              className="msio-character-img"
+              src={imageUrl}
+              alt={`${profile?.name || preset.label || roleCode} 角色预览`}
+              draggable="false"
+              onError={() => setImageError(true)}
+            />
+          )}
+        </div>
       </div>
 
-      <div className="builder-summary">
-        <b>{profile?.name || roleCode}</b>
-        <span>React state 角色生成 · {gender === "male" ? "男号" : "女号"}</span>
-      </div>
-
-      <div className="character-builder-controls" data-export-hidden="true">
-        <button type="button" onClick={rerollCharacter}>随机发型脸型和职业装备</button>
-        <button type="button" className={hideHat ? "active" : ""} onClick={() => setHideHat((value) => !value)}>
-          {hideHat ? "显示帽子" : "隐藏帽子"}
-        </button>
-      </div>
+      <details className="character-builder-controls" open data-export-hidden="true">
+        <summary className="builder-summary">
+          <b>角色预览</b>
+          <span>{preset.label || profile?.name || roleCode}</span>
+        </summary>
+        <div className="builder-control-head">
+          <b>显示设置</b>
+          <div className="builder-button-row">
+            <button type="button" className="ghost-btn small-btn" onClick={rerollCharacter}>随机发型脸型和职业装备</button>
+            <button type="button" className={`ghost-btn small-btn ${hideHat ? "active" : ""}`} onClick={() => setHideHat((value) => !value)}>
+              {hideHat ? "显示帽子" : "隐藏帽子"}
+            </button>
+          </div>
+        </div>
+        {loadError && <p className="builder-note">{loadError}</p>}
+      </details>
     </div>
   );
 }
