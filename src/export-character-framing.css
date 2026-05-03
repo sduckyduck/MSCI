@@ -1,0 +1,12 @@
+.export-character-frame {
+  padding-top: 6px;
+}
+
+.export-character-frame img,
+.export-character-frame .msio-character-img {
+  max-width: 126% !important;
+  max-height: 126% !important;
+  object-position: center center !important;
+  transform: translateY(14px) scale(1.01) !important;
+  transform-origin: center center !important;
+}
