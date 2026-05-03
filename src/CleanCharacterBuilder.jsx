@@ -4,29 +4,57 @@ import FastCharacterBuilder from "./FastCharacterBuilder";
 const FIXED_SKIN_ID = 2000;
 const PIRATE_ROLE_CODES = new Set(["BRAW", "GUNS"]);
 
-const HAIR_COLOR_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7];
-
-const HAIR_STYLE_BASE_IDS = {
+const HAIR_STYLE_IDS = {
   male: [
-    30000, 30010, 30020, 30030, 30040, 30050, 30060, 30070, 30080, 30090,
-    30100, 30110, 30120, 30130, 30140, 30150, 30160, 30170, 30180, 30190,
-    30200, 30210, 30220, 30230, 30240, 30250, 30260, 30270, 30280, 30290,
-    30300, 30310, 30320, 30330, 30340, 30350, 30360, 30370, 30380,
+    30000, 30020, 30030, 30040, 30050, 30060, 30110, 30120, 30130, 30140,
+    30150, 30160, 30170, 30180, 30190, 30200, 30210, 30220, 30230, 30240,
+    30250, 30260, 30270, 30280, 30290, 30300, 30310, 30320, 30330, 30340,
+    30350, 30360, 30370, 30380, 30400, 30410, 30420, 30440, 30450, 30460,
+    30470, 30480, 30490, 30510, 30520, 30530, 30540, 30550, 30560, 30570,
+    30580, 30590, 30600, 30610, 30620, 30630, 30640, 30650, 30660, 30670,
+    30680, 30690, 30700, 30710, 30720, 30730, 30740, 30750, 30760, 30770,
+    30780, 30790, 30800, 30810, 30820, 30830, 30840, 30850, 30860, 30870,
+    30880, 30890, 30900, 30910, 30920, 30930, 35340, 35350,
   ],
   female: [
     31000, 31010, 31020, 31030, 31040, 31050, 31060, 31070, 31080, 31090,
     31100, 31110, 31120, 31130, 31140, 31150, 31160, 31170, 31180, 31190,
     31200, 31210, 31220, 31230, 31240, 31250, 31260, 31270, 31280, 31290,
-    31300, 31310, 31320, 31330, 31340, 31350, 31360, 31370, 31380,
+    31300, 31310, 31320, 31330, 31340, 31350, 31360, 31370, 31380, 31420,
+    31430, 31440, 31450, 31460, 31470, 31480, 31490, 31500, 31520, 31530,
+    31540, 31550, 31560, 31570, 31580, 31590, 31600, 31610, 31620, 31630,
+    31640, 31650, 31660, 31670, 31680, 31690, 31700, 31710, 31720, 31730,
+    31740, 31750, 31760, 31770, 31780, 31790, 31800, 31810, 31820, 31830,
+    31840, 31850, 31860, 31870, 31880, 31890, 31900, 31910, 31920, 31930,
+    31940, 31950, 31960, 31970, 31980, 31990, 32000, 34010, 34020, 34030,
+    34040, 34090, 34100, 34110, 34120, 34130, 34140, 34150, 34160, 34170,
+    34180, 34190, 34200, 34210, 34230, 34240, 34250, 34260, 34270, 34280,
+    34290, 34300, 34310, 34320, 34330, 34340, 34350, 34360, 34370, 34380,
+    34400, 34410, 34420, 34430, 34440, 34450, 34470, 34480, 34490, 34510,
+    34540, 34560, 34580, 34590, 34600, 34610, 34620, 34630, 34640, 34650,
+    34660, 34670, 34680, 34690, 34700, 34710, 34720, 34730, 34740, 34750,
+    34760, 34770, 34780, 34790, 34800, 34810, 34820, 34830, 34840, 34850,
+    34860, 34870, 34880, 34890, 34900, 34910, 34940, 34950, 34960, 34970,
+    34980, 37000, 37010, 37020, 37030, 37040, 37060, 37070, 37080, 37090,
+    37100, 37110, 37120, 37130, 37140, 37150, 37160, 37170, 37180, 37190,
+    37200, 37210, 37220, 37230, 37300, 37310, 37320, 37340, 37370, 37380,
+    37420, 37450, 37460, 37470, 37500, 37560, 37580, 37600, 37610, 37620,
+    37630, 32560, 37760, 37770, 37780, 37790, 37800, 37810, 37820, 37830,
+    37840, 37850, 37860, 37910, 37920, 37930, 37940, 37950, 37960, 37970,
+    37980, 37990, 38000, 38010, 38020, 38030, 38040, 38050, 38060, 38070,
+    38080, 38090, 38100, 38110, 38120, 38130, 38140, 38150, 38160, 38170,
+    38240, 38250, 38260, 38270, 38280, 38290, 38300, 38310, 38320, 38330,
+    38340, 38350, 38360, 38370, 38380, 38390, 38400, 38410, 38420, 38430,
+    38440, 38450, 38460, 38470, 38480, 38490, 38500, 38510, 38520, 39040,
   ],
 };
 
-const FULL_HAIR_POOL = {
-  male: expandHairPool(HAIR_STYLE_BASE_IDS.male),
-  female: expandHairPool(HAIR_STYLE_BASE_IDS.female),
+const HAIR_ID_SETS = {
+  male: new Set(HAIR_STYLE_IDS.male),
+  female: new Set(HAIR_STYLE_IDS.female),
 };
 
-const PIRATE_HAIR = FULL_HAIR_POOL;
+const PIRATE_HAIR = HAIR_STYLE_IDS;
 
 const PIRATE_FACE = {
   male: [20000, 20003, 20004, 20005, 20011],
@@ -46,13 +74,15 @@ const PIRATE_LOADOUTS = {
   ],
 };
 
-function expandHairPool(baseIds) {
-  return (baseIds || []).flatMap((baseId) => HAIR_COLOR_OFFSETS.map((offset) => baseId + offset));
-}
-
 function inferGenderFromHairId(hairId) {
   const id = Number(hairId);
-  if (id >= 31000 && id < 32000) return "female";
+  if (!Number.isFinite(id)) return null;
+
+  const baseStyleId = Math.floor(id / 10) * 10;
+  if (HAIR_ID_SETS.female.has(id) || HAIR_ID_SETS.female.has(baseStyleId)) return "female";
+  if (HAIR_ID_SETS.male.has(id) || HAIR_ID_SETS.male.has(baseStyleId)) return "male";
+
+  if (id >= 31000 && id < 40000) return "female";
   if (id >= 30000 && id < 31000) return "male";
   return null;
 }
@@ -74,8 +104,8 @@ function normalizeCharacterUrl(currentSrc) {
         .filter(Boolean);
 
       const gender = inferGenderFromHairId(entries[0]);
-      if (gender && FULL_HAIR_POOL[gender]?.length) {
-        entries[0] = String(randomFrom(FULL_HAIR_POOL[gender]));
+      if (gender && HAIR_STYLE_IDS[gender]?.length) {
+        entries[0] = String(randomFrom(HAIR_STYLE_IDS[gender]));
       }
 
       return `${characterPrefix}${FIXED_SKIN_ID}${slash}${encodeURIComponent(entries.join(","))}${actionSegment}${query}`;
@@ -164,7 +194,7 @@ function PirateCharacterBuilder({ profile }) {
       </div>
       <div className="builder-summary">
         <b>{profile?.name || "海盗"}</b>
-        <span>国服海盗装备池 · {PIRATE_HAIR[gender].length} 发型颜色组合</span>
+        <span>国服海盗装备池 · {PIRATE_HAIR[gender].length} 发型</span>
       </div>
       <div className="character-builder-controls" data-export-hidden="true">
         <button type="button" onClick={() => setGender((current) => (current === "female" ? "male" : "female"))}>
