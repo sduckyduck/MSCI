@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
-import CharacterBuilder from "./CleanCharacterBuilder";
+import CharacterBuilder from "./SmoothCharacterBuilder";
 import { getModeModel, modeOptions } from "./model/msciModes";
 import {
   jobDisplayNames,
@@ -8,6 +8,8 @@ import {
   scoreMsciV2,
   traitDisplayNames,
 } from "./model/msciV2QuestionBank";
+
+const CHARACTER_GENDER_STORAGE_KEY = "msci-character-gender";
 
 const stageLabels = {
   intro: "说明",
@@ -113,6 +115,30 @@ const resultProfiles = {
     description: "你喜欢远程拉扯、火力反馈和灵活走位。你既想保持距离，也想让画面看起来有节奏、有弹道、有新鲜感。",
   },
 };
+
+function normalizeCharacterGender(value) {
+  const key = String(value || "").trim().toLowerCase();
+  return key === "male" || key === "female" ? key : "";
+}
+
+function getStoredCharacterGender() {
+  if (typeof window === "undefined") return "";
+  try {
+    return normalizeCharacterGender(window.localStorage.getItem(CHARACTER_GENDER_STORAGE_KEY));
+  } catch {
+    return "";
+  }
+}
+
+function storeCharacterGender(gender) {
+  const normalized = normalizeCharacterGender(gender);
+  if (typeof window === "undefined" || !normalized) return;
+  try {
+    window.localStorage.setItem(CHARACTER_GENDER_STORAGE_KEY, normalized);
+  } catch {
+    // localStorage can fail in private mode; React state still works.
+  }
+}
 
 function profileTitle(profile) {
   if (!profile) return "—";
@@ -292,6 +318,38 @@ function QuestionCard({ question, value, onChange, index }) {
   );
 }
 
+function FinalGenderSelector({ value, onChange }) {
+  const options = [
+    { id: "male", label: "男号", sub: "结果角色卡用男角色生成" },
+    { id: "female", label: "女号", sub: "结果角色卡用女角色生成" },
+  ];
+
+  return (
+    <section className="final-gender-question">
+      <p className="eyebrow">Final Character</p>
+      <h3>最后一题：结果角色卡用男号还是女号？</h3>
+      <p>这个选择不影响职业分数，只决定结果页和导出 PNG 里的角色预览性别。</p>
+      <div className="final-gender-options" role="radiogroup" aria-label="选择结果角色性别">
+        {options.map((option) => {
+          const active = value === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              className={`final-gender-option ${active ? "active" : ""}`}
+              aria-pressed={active}
+              onClick={() => onChange(option.id)}
+            >
+              <b>{option.label}</b>
+              <small>{option.sub}</small>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function RankingTable({ results }) {
   return (
     <div className="ranking-table">
@@ -354,7 +412,7 @@ function ExportMiniList({ title, rows, type = "job" }) {
   );
 }
 
-function ExportShareCard({ captureRef, result, firstResult, secondResult, scoreResult, modeLabel }) {
+function ExportShareCard({ captureRef, result, firstResult, secondResult, scoreResult, modeLabel, characterGender }) {
   const firstRows = scoreResult.firstRanking.slice(0, 4);
   const secondRows = scoreResult.secondRanking.slice(0, 3);
   const traitRows = scoreResult.traitRanking.slice(0, 4);
@@ -368,7 +426,7 @@ function ExportShareCard({ captureRef, result, firstResult, secondResult, scoreR
       <section className="export-hero-card">
         <div className="export-character-side">
           <div className="export-character-frame">
-            <CharacterBuilder profile={result} />
+            <CharacterBuilder profile={result} characterGender={characterGender} />
           </div>
         </div>
         <div className="export-result-side">
@@ -400,14 +458,14 @@ function ExportShareCard({ captureRef, result, firstResult, secondResult, scoreR
   );
 }
 
-function ResultHero({ result, firstResult, secondResult, confidence, modeLabel }) {
+function ResultHero({ result, firstResult, secondResult, confidence, modeLabel, characterGender }) {
   return (
     <section className="result-hero sbti-result-card">
       <div className="result-image-panel">
         <p>你的{modeLabel}职业人格是：</p>
         <h2>{result.personaName}</h2>
         <div className="result-code green-code">{result.code}</div>
-        <CharacterBuilder profile={result} />
+        <CharacterBuilder profile={result} characterGender={characterGender} />
         <p className="result-slogan">{result.slogan}</p>
       </div>
       <div className="result-info-panel">
@@ -427,7 +485,17 @@ function ResultHero({ result, firstResult, secondResult, confidence, modeLabel }
   );
 }
 
-function TestWizard({ questions, responses, currentIndex, setCurrentIndex, onAnswer, isComplete, onShowResult }) {
+function TestWizard({
+  questions,
+  responses,
+  currentIndex,
+  setCurrentIndex,
+  onAnswer,
+  isComplete,
+  onShowResult,
+  characterGender,
+  onCharacterGenderChange,
+}) {
   const currentQuestion = questions[currentIndex] || questions[0];
   const currentValue = currentQuestion ? responses[currentQuestion.id] : undefined;
 
@@ -486,7 +554,15 @@ function TestWizard({ questions, responses, currentIndex, setCurrentIndex, onAns
         <section className="stage-result-card completion-anchor">
           <p className="eyebrow">测试完成</p>
           <h2>职业人格已生成</h2>
-          <button type="button" className="primary-btn" onClick={onShowResult}>查看最终结果</button>
+          <FinalGenderSelector value={characterGender} onChange={onCharacterGenderChange} />
+          <button
+            type="button"
+            className={`primary-btn ${!characterGender ? "gender-required" : ""}`}
+            disabled={!characterGender}
+            onClick={onShowResult}
+          >
+            查看最终结果
+          </button>
         </section>
       )}
     </section>
@@ -500,6 +576,7 @@ function App() {
   const [responses, setResponses] = useState({});
   const [questionOrder, setQuestionOrder] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [characterGender, setCharacterGender] = useState(() => getStoredCharacterGender());
   const [isSaving, setIsSaving] = useState(false);
   const resultCaptureRef = useRef(null);
   const exportCaptureRef = useRef(null);
@@ -526,12 +603,14 @@ function App() {
     setResponses({});
     setQuestionOrder([]);
     setCurrentIndex(0);
+    setCharacterGender("");
   }
 
   function startTest() {
     setResponses({});
     setQuestionOrder(shuffleQuestions(msciV2Questions));
     setCurrentIndex(0);
+    setCharacterGender("");
     setStage("test");
   }
 
@@ -539,8 +618,14 @@ function App() {
     setResponses((prev) => ({ ...prev, [questionId]: value }));
   }
 
+  function updateCharacterGender(gender) {
+    const normalized = normalizeCharacterGender(gender);
+    setCharacterGender(normalized);
+    storeCharacterGender(normalized);
+  }
+
   function showFinalResult() {
-    if (!isComplete) return;
+    if (!isComplete || !characterGender) return;
     setStage("result");
   }
 
@@ -549,6 +634,7 @@ function App() {
     setResponses({});
     setQuestionOrder([]);
     setCurrentIndex(0);
+    setCharacterGender("");
   }
 
   function downloadImage(blob, fileName) {
@@ -638,10 +724,12 @@ function App() {
           onAnswer={updateAnswer}
           isComplete={isComplete}
           onShowResult={showFinalResult}
+          characterGender={characterGender}
+          onCharacterGenderChange={updateCharacterGender}
         />
       )}
 
-      {stage === "result" && isComplete && (
+      {stage === "result" && isComplete && characterGender && (
         <section className="result-page sbti-result-page">
           <div ref={resultCaptureRef} className="result-capture-card sbti-capture-card">
             <ResultHero
@@ -650,6 +738,7 @@ function App() {
               secondResult={secondResult}
               confidence={scoreResult.secondConfidence}
               modeLabel={modeModel.label}
+              characterGender={characterGender}
             />
             <section className="panel compact-ranking-panel">
               <h3>一转大类排名</h3>
@@ -681,6 +770,7 @@ function App() {
               secondResult={secondResult}
               scoreResult={scoreResult}
               modeLabel={modeModel.label}
+              characterGender={characterGender}
             />
           </div>
         </section>
