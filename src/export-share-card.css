@@ -232,6 +232,15 @@
   font-weight: 900;
 }
 
+.export-footer span:last-child {
+  font-size: 0;
+}
+
+.export-footer span:last-child::after {
+  content: "🐥 @奇怪小鸭";
+  font-size: 24px;
+}
+
 .exporting-png .export-share-stage {
   z-index: 1;
 }
