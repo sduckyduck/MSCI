@@ -4,10 +4,29 @@ import FastCharacterBuilder from "./FastCharacterBuilder";
 const FIXED_SKIN_ID = 2000;
 const PIRATE_ROLE_CODES = new Set(["BRAW", "GUNS"]);
 
-const PIRATE_HAIR = {
-  male: [30000, 30040, 30100, 30170, 30240, 30340],
-  female: [31000, 31050, 31100, 31220, 31320, 31380],
+const HAIR_COLOR_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7];
+
+const HAIR_STYLE_BASE_IDS = {
+  male: [
+    30000, 30010, 30020, 30030, 30040, 30050, 30060, 30070, 30080, 30090,
+    30100, 30110, 30120, 30130, 30140, 30150, 30160, 30170, 30180, 30190,
+    30200, 30210, 30220, 30230, 30240, 30250, 30260, 30270, 30280, 30290,
+    30300, 30310, 30320, 30330, 30340, 30350, 30360, 30370, 30380,
+  ],
+  female: [
+    31000, 31010, 31020, 31030, 31040, 31050, 31060, 31070, 31080, 31090,
+    31100, 31110, 31120, 31130, 31140, 31150, 31160, 31170, 31180, 31190,
+    31200, 31210, 31220, 31230, 31240, 31250, 31260, 31270, 31280, 31290,
+    31300, 31310, 31320, 31330, 31340, 31350, 31360, 31370, 31380,
+  ],
 };
+
+const FULL_HAIR_POOL = {
+  male: expandHairPool(HAIR_STYLE_BASE_IDS.male),
+  female: expandHairPool(HAIR_STYLE_BASE_IDS.female),
+};
+
+const PIRATE_HAIR = FULL_HAIR_POOL;
 
 const PIRATE_FACE = {
   male: [20000, 20003, 20004, 20005, 20011],
@@ -27,21 +46,57 @@ const PIRATE_LOADOUTS = {
   ],
 };
 
-function forceDefaultSkin(root) {
+function expandHairPool(baseIds) {
+  return (baseIds || []).flatMap((baseId) => HAIR_COLOR_OFFSETS.map((offset) => baseId + offset));
+}
+
+function inferGenderFromHairId(hairId) {
+  const id = Number(hairId);
+  if (id >= 31000 && id < 32000) return "female";
+  if (id >= 30000 && id < 31000) return "male";
+  return null;
+}
+
+function randomFrom(items) {
+  return items[Math.floor(Math.random() * items.length)] || items[0];
+}
+
+function normalizeCharacterUrl(currentSrc) {
+  const src = String(currentSrc || "");
+  if (!src.includes("/Character/")) return src;
+
+  return src.replace(
+    /(\/Character\/)(\d+)(\/)([^/]+)(\/[^?]+)(\?.*)?$/,
+    (match, characterPrefix, _skin, slash, itemSegment, actionSegment, query = "") => {
+      const entries = decodeURIComponent(itemSegment)
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+
+      const gender = inferGenderFromHairId(entries[0]);
+      if (gender && FULL_HAIR_POOL[gender]?.length) {
+        entries[0] = String(randomFrom(FULL_HAIR_POOL[gender]));
+      }
+
+      return `${characterPrefix}${FIXED_SKIN_ID}${slash}${encodeURIComponent(entries.join(","))}${actionSegment}${query}`;
+    }
+  );
+}
+
+function normalizeCharacterImages(root) {
   if (!root) return;
 
   root.querySelectorAll("img.msio-character-img").forEach((image) => {
     const currentSrc = image.getAttribute("src") || "";
-    const nextSrc = currentSrc.replace(/\/Character\/\d+\//, `/Character/${FIXED_SKIN_ID}/`);
+    if (!currentSrc || currentSrc === image.dataset.msciNormalizedSrc) return;
+
+    const nextSrc = normalizeCharacterUrl(currentSrc);
+    image.dataset.msciNormalizedSrc = nextSrc;
 
     if (nextSrc && nextSrc !== currentSrc) {
       image.setAttribute("src", nextSrc);
     }
   });
-}
-
-function randomFrom(items) {
-  return items[Math.floor(Math.random() * items.length)] || items[0];
 }
 
 function normalizeLegacyFaceEmote(emote) {
@@ -109,7 +164,7 @@ function PirateCharacterBuilder({ profile }) {
       </div>
       <div className="builder-summary">
         <b>{profile?.name || "海盗"}</b>
-        <span>国服海盗装备池</span>
+        <span>国服海盗装备池 · {PIRATE_HAIR[gender].length} 发型颜色组合</span>
       </div>
       <div className="character-builder-controls" data-export-hidden="true">
         <button type="button" onClick={() => setGender((current) => (current === "female" ? "male" : "female"))}>
@@ -130,10 +185,10 @@ function CleanCharacterBuilder(props) {
     const root = rootRef.current;
     if (!root) return undefined;
 
-    forceDefaultSkin(root);
+    normalizeCharacterImages(root);
 
     const observer = new MutationObserver(() => {
-      forceDefaultSkin(root);
+      normalizeCharacterImages(root);
     });
 
     observer.observe(root, {
