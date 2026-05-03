@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "simulate:china": "node scripts/simulate-msci-balance.mjs --mode china --runs 100000 --seed 20260503",
+    "simulate:global": "node scripts/simulate-msci-balance.mjs --mode global --runs 100000 --seed 20260503"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.1",
