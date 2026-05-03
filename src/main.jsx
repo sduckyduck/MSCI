@@ -11,6 +11,7 @@ import "./export-share-card.css";
 import "./export-character-framing.css";
 import "./author-widget.css";
 import "./export-author-avatar.css";
+import "./export-final-fixes.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
