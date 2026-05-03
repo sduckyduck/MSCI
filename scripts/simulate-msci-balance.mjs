@@ -1,8 +1,8 @@
 import {
   jobDisplayNames,
   msciV2Questions,
-  scoreMsciV2,
 } from "../src/model/msciV2QuestionBank.js";
+import { scoreMsciV2 } from "../src/model/scoreMsciV2Balanced.js";
 
 const DEFAULT_RUNS = 100_000;
 const DEFAULT_SEED = 20260503;
