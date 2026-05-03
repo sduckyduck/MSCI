@@ -7,6 +7,7 @@ const GENDER_OPTIONS = [
 ];
 
 let hasAutoScrolledToCompletion = false;
+let syncRafId = 0;
 
 function normalizeGender(value) {
   const key = String(value || "").trim().toLowerCase();
@@ -130,8 +131,9 @@ function updateGenderButtons(container) {
   const selected = getStoredGender();
   container.querySelectorAll(".final-gender-option").forEach((button) => {
     const active = button.dataset.gender === selected;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", active ? "true" : "false");
+    if (button.classList.contains("active") !== active) button.classList.toggle("active", active);
+    const pressed = active ? "true" : "false";
+    if (button.getAttribute("aria-pressed") !== pressed) button.setAttribute("aria-pressed", pressed);
   });
 }
 
@@ -140,9 +142,12 @@ function updateResultButtonState(card) {
   if (!button) return;
 
   const hasGender = Boolean(getStoredGender());
-  button.disabled = !hasGender;
-  button.classList.toggle("gender-required", !hasGender);
-  button.title = hasGender ? "" : "请先选择角色性别";
+  if (button.disabled === hasGender) button.disabled = !hasGender;
+  if (button.classList.contains("gender-required") === hasGender) {
+    button.classList.toggle("gender-required", !hasGender);
+  }
+  const title = hasGender ? "" : "请先选择角色性别";
+  if (button.title !== title) button.title = title;
 }
 
 function makeGenderQuestion(card) {
@@ -195,15 +200,24 @@ function syncCompletionGenderFlow() {
     return;
   }
 
-  makeGenderQuestion(card);
+  const question = makeGenderQuestion(card);
+  updateGenderButtons(question);
   updateResultButtonState(card);
 
   if (!hasAutoScrolledToCompletion) {
     hasAutoScrolledToCompletion = true;
     window.setTimeout(() => {
-      card.scrollIntoView({ behavior: "smooth", block: "end" });
+      if (document.body.contains(card)) card.scrollIntoView({ behavior: "smooth", block: "end" });
     }, 220);
   }
+}
+
+function scheduleCompletionGenderFlow() {
+  if (syncRafId) return;
+  syncRafId = window.requestAnimationFrame(() => {
+    syncRafId = 0;
+    syncCompletionGenderFlow();
+  });
 }
 
 function startFinalGenderFlow() {
@@ -212,8 +226,9 @@ function startFinalGenderFlow() {
   ensureStyle();
   syncCompletionGenderFlow();
 
-  const observer = new MutationObserver(() => syncCompletionGenderFlow());
-  observer.observe(document.body, { childList: true, subtree: true });
+  const root = document.getElementById("root") || document.body;
+  const observer = new MutationObserver(scheduleCompletionGenderFlow);
+  observer.observe(root, { childList: true, subtree: true });
 
   window.addEventListener(GENDER_EVENT_NAME, () => {
     const card = findCompletionCard();
