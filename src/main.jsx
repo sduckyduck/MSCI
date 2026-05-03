@@ -12,7 +12,6 @@ import "./export-character-framing.css";
 import "./author-widget.css";
 import "./export-author-avatar.css";
 import "./export-final-fixes.css";
-import "./final-gender-flow.js";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
