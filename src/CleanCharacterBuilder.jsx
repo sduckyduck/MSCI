@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import FastCharacterBuilder from "./FastCharacterBuilder";
 
 const FIXED_SKIN_ID = 2000;
-const PIRATE_ROLE_CODES = new Set(["BRAW", "GUNR"]);
+const PIRATE_ROLE_CODES = new Set(["BRAW", "GUNS"]);
 
 const PIRATE_HAIR = {
   male: [30000, 30040, 30100, 30170, 30240, 30340],
@@ -20,7 +20,7 @@ const PIRATE_LOADOUTS = {
     [1002613, 1040106, 1060094, 1072288, 1482001],
     [1482000],
   ],
-  GUNR: [
+  GUNS: [
     [1002610, 1052095, 1072288, 1492000],
     [1002613, 1040106, 1060094, 1072288, 1492001],
     [1492000],
@@ -81,13 +81,13 @@ function PirateCharacterBuilder({ profile }) {
   }, [roleCode, gender, reroll]);
 
   const config = useMemo(() => {
-    const emote = roleCode === "GUNR" ? "wink" : "angry";
+    const emote = roleCode === "GUNS" ? "wink" : "angry";
     const loadouts = PIRATE_LOADOUTS[roleCode] || PIRATE_LOADOUTS.BRAW;
     return {
       hair: randomFrom(PIRATE_HAIR[gender]),
       face: randomFrom(PIRATE_FACE[gender]),
       emote,
-      action: roleCode === "GUNR" ? "stand1" : "stand2",
+      action: roleCode === "GUNS" ? "stand1" : "stand2",
       equipment: useSafeFallback ? [] : randomFrom(loadouts),
     };
   }, [roleCode, gender, reroll, useSafeFallback]);
