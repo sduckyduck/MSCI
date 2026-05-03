@@ -34,7 +34,9 @@
 .character-preview-bg[data-role="SNIP"],
 .character-preview-bg[data-role="SLAY"],
 .character-preview-bg[data-role="SHLD"],
-.character-preview-bg[data-role="POLE"] {
+.character-preview-bg[data-role="POLE"],
+.character-preview-bg[data-role="BRAW"],
+.character-preview-bg[data-role="GUNS"] {
   background: linear-gradient(180deg, #f6f7f7, #ecefed);
 }
 
@@ -142,7 +144,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 0 20px;
+  padding: 0 20px 20px;
 }
 
 .builder-control-head b {
@@ -162,6 +164,12 @@
   border-radius: 999px;
   font-size: 13px;
   font-weight: 900;
+}
+
+.small-btn.active {
+  border-color: rgba(45, 107, 166, 0.95);
+  background: rgba(226, 240, 255, 0.96);
+  color: #31506f;
 }
 
 .builder-grid {
@@ -224,7 +232,7 @@
   .builder-control-head {
     align-items: flex-start;
     flex-direction: column;
-    padding: 0 18px;
+    padding: 0 18px 18px;
   }
 
   .builder-button-row {
