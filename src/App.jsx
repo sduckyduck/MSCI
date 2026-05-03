@@ -29,6 +29,17 @@ function scrollPageToTop() {
   document.body.scrollTop = 0;
 }
 
+function shuffleQuestions(questions) {
+  const shuffled = [...(questions || [])];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+}
+
 function CompletionBadge({ missing, total }) {
   const done = total - missing;
   return (
@@ -363,10 +374,14 @@ function App() {
   const [firstResponses, setFirstResponses] = useState({});
   const [secondResponses, setSecondResponses] = useState({});
   const [lockedFirstJob, setLockedFirstJob] = useState(null);
+  const [firstQuestionOrder, setFirstQuestionOrder] = useState([]);
+  const [secondQuestionOrder, setSecondQuestionOrder] = useState([]);
   const [firstIndex, setFirstIndex] = useState(0);
   const [secondIndex, setSecondIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const resultCaptureRef = useRef(null);
+
+  const activeFirstQuestions = firstQuestionOrder.length ? firstQuestionOrder : modeModel.firstJobQuestions;
 
   const firstScores = useMemo(
     () => scoreQuestions(modeModel.firstJobQuestions, firstResponses, modeModel.firstJobDimensions),
@@ -380,13 +395,14 @@ function App() {
 
   const fallbackFirstJob = Object.keys(modeModel.firstJobProfiles)[0] || "warrior";
   const selectedFirstJob = lockedFirstJob || firstResults[0]?.id || fallbackFirstJob;
-  const secondQuestions = modeModel.secondJobQuestions[selectedFirstJob] || [];
+  const rawSecondQuestions = modeModel.secondJobQuestions[selectedFirstJob] || [];
+  const secondQuestions = secondQuestionOrder.length ? secondQuestionOrder : rawSecondQuestions;
   const secondDimensions = modeModel.secondJobDimensions[selectedFirstJob] || {};
   const secondProfiles = modeModel.secondJobProfiles[selectedFirstJob] || {};
 
   const secondScores = useMemo(
-    () => scoreQuestions(secondQuestions, secondResponses, secondDimensions),
-    [secondQuestions, secondResponses, secondDimensions]
+    () => scoreQuestions(rawSecondQuestions, secondResponses, secondDimensions),
+    [rawSecondQuestions, secondResponses, secondDimensions]
   );
 
   const secondResults = useMemo(
@@ -395,9 +411,9 @@ function App() {
   );
 
   const firstMissing = getMissingQuestionCount(modeModel.firstJobQuestions, firstResponses);
-  const secondMissing = getMissingQuestionCount(secondQuestions, secondResponses);
+  const secondMissing = getMissingQuestionCount(rawSecondQuestions, secondResponses);
   const isFirstComplete = firstMissing === 0;
-  const isSecondComplete = secondQuestions.length > 0 && secondMissing === 0;
+  const isSecondComplete = rawSecondQuestions.length > 0 && secondMissing === 0;
   const confidence = getConfidence(firstResults);
 
   useEffect(() => {
@@ -414,8 +430,21 @@ function App() {
     setFirstResponses({});
     setSecondResponses({});
     setLockedFirstJob(null);
+    setFirstQuestionOrder([]);
+    setSecondQuestionOrder([]);
     setFirstIndex(0);
     setSecondIndex(0);
+  }
+
+  function startFirstTest() {
+    setFirstResponses({});
+    setSecondResponses({});
+    setLockedFirstJob(null);
+    setFirstQuestionOrder(shuffleQuestions(modeModel.firstJobQuestions));
+    setSecondQuestionOrder([]);
+    setFirstIndex(0);
+    setSecondIndex(0);
+    setStage("first");
   }
 
   function updateFirstAnswer(questionId, value) {
@@ -428,8 +457,12 @@ function App() {
 
   function continueToSecond() {
     if (!isFirstComplete) return;
-    setLockedFirstJob(firstResults[0]?.id || fallbackFirstJob);
+    const nextFirstJob = firstResults[0]?.id || fallbackFirstJob;
+    const nextSecondQuestions = modeModel.secondJobQuestions[nextFirstJob] || [];
+
+    setLockedFirstJob(nextFirstJob);
     setSecondResponses({});
+    setSecondQuestionOrder(shuffleQuestions(nextSecondQuestions));
     setSecondIndex(0);
     setStage("second");
   }
@@ -444,6 +477,8 @@ function App() {
     setFirstResponses({});
     setSecondResponses({});
     setLockedFirstJob(null);
+    setFirstQuestionOrder([]);
+    setSecondQuestionOrder([]);
     setFirstIndex(0);
     setSecondIndex(0);
   }
@@ -520,7 +555,7 @@ function App() {
             <p className="mode-note">{modeModel.note}</p>
             <ModeSelector value={mode} onChange={resetForMode} />
           </div>
-          <button className="primary-btn" onClick={() => setStage("first")}>开始测试</button>
+          <button className="primary-btn" onClick={startFirstTest}>开始测试</button>
         </section>
       )}
 
@@ -528,7 +563,7 @@ function App() {
         <TestWizard
           title={`一转测试 · ${modeModel.label}`}
           subtitle={modeModel.firstStageSubtitle}
-          questions={modeModel.firstJobQuestions}
+          questions={activeFirstQuestions}
           responses={firstResponses}
           currentIndex={firstIndex}
           setCurrentIndex={setFirstIndex}
