@@ -79,6 +79,10 @@
   background: #eef6ef;
 }
 
+.wizard-meta span:not(.question-index) {
+  display: none !important;
+}
+
 .exporting-png .duck-author-widget {
   display: none !important;
 }
