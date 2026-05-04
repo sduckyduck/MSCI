@@ -1,17 +1,41 @@
 import {
+  jobDisplayNames,
+  msciV2Questions,
   scoreMsciV2 as scoreMsciV2Raw,
   secondJobGroups,
 } from "./msciV2QuestionBank.js";
 import { msciBalanceMultipliers } from "./msciBalanceMultipliers.js";
 
-function applyMultipliers(rows, multipliers) {
-  return [...(rows || [])]
-    .map((row) => ({
-      ...row,
-      rawScore: row.rawScore ?? row.score,
-      score: Number(((Number(row.score || 0)) * (multipliers[row.id] ?? 1)).toFixed(3)),
-    }))
-    .sort((a, b) => b.score - a.score);
+const firstJobIdsByMode = {
+  global: ["warrior", "magician", "thief", "archer"],
+  china: ["warrior", "magician", "thief", "archer", "pirate"],
+};
+
+function addScores(target, scores, weight = 1) {
+  Object.entries(scores || {}).forEach(([id, value]) => {
+    target[id] = (target[id] || 0) + Number(value || 0) * weight;
+  });
+}
+
+function makeRanking(ids, scores, multipliers) {
+  const rows = ids.map((id) => {
+    const rawScore = Number((scores[id] || 0).toFixed(3));
+    const score = Number((rawScore * (multipliers[id] ?? 1)).toFixed(3));
+    return {
+      id,
+      name: jobDisplayNames[id] || id,
+      rawScore,
+      score,
+      matchPercent: 0,
+    };
+  });
+
+  rows.sort((a, b) => b.score - a.score);
+  const topScore = rows[0]?.score || 0;
+  return rows.map((row) => ({
+    ...row,
+    matchPercent: topScore > 0 ? Math.max(0, Math.min(100, Math.round((row.score / topScore) * 100))) : 0,
+  }));
 }
 
 function makeConfidence(rows) {
@@ -24,24 +48,42 @@ function makeConfidence(rows) {
   return { gap, label };
 }
 
+function calculateBalancedRankings(responses, mode) {
+  const firstIds = firstJobIdsByMode[mode] || firstJobIdsByMode.china;
+  const firstScores = Object.fromEntries(firstIds.map((id) => [id, 0]));
+  const secondScores = {};
+
+  Object.values(secondJobGroups).flat().forEach((id) => {
+    secondScores[id] = 0;
+  });
+
+  for (const question of msciV2Questions) {
+    const answerKey = responses?.[question.id];
+    if (answerKey === undefined) continue;
+    const option = (question.options || []).find((item) => item.key === answerKey);
+    if (!option) continue;
+    const weight = question.weight ?? 1;
+    addScores(firstScores, option.first, weight);
+    addScores(secondScores, option.second, weight);
+  }
+
+  const firstRanking = makeRanking(firstIds, firstScores, msciBalanceMultipliers.first);
+  const firstJob = firstRanking[0]?.id || firstIds[0];
+  const secondIds = secondJobGroups[firstJob] || [];
+  const secondRanking = makeRanking(secondIds, secondScores, msciBalanceMultipliers.second);
+  const secondJob = secondRanking[0]?.id || secondIds[0];
+
+  return { firstJob, secondJob, firstRanking, secondRanking };
+}
+
 export function scoreMsciV2(responses, mode = "china") {
   const raw = scoreMsciV2Raw(responses, mode);
-  const firstRanking = applyMultipliers(raw.firstRanking, msciBalanceMultipliers.first);
-  const firstJob = firstRanking[0]?.id || raw.firstJob;
-  const allowedSecondJobs = new Set(secondJobGroups[firstJob] || []);
-
-  let secondRanking = applyMultipliers(raw.secondRanking, msciBalanceMultipliers.second);
-  secondRanking = secondRanking.filter((row) => allowedSecondJobs.has(row.id));
-
-  const secondJob = secondRanking[0]?.id || raw.secondJob;
+  const balanced = calculateBalancedRankings(responses, mode);
 
   return {
     ...raw,
-    firstJob,
-    secondJob,
-    firstRanking,
-    secondRanking,
-    firstConfidence: makeConfidence(firstRanking),
-    secondConfidence: makeConfidence(secondRanking),
+    ...balanced,
+    firstConfidence: makeConfidence(balanced.firstRanking),
+    secondConfidence: makeConfidence(balanced.secondRanking),
   };
 }
