@@ -5,9 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --base=/",
-    "build:cloudflare": "vite build --base=/",
-    "build:github": "vite build --base=/MSCI/",
+    "build": "vite build",
     "preview": "vite preview",
     "simulate:china": "node scripts/simulate-msci-balance.mjs --mode china --runs 100000 --seed 20260503",
     "simulate:global": "node scripts/simulate-msci-balance.mjs --mode global --runs 100000 --seed 20260503"
