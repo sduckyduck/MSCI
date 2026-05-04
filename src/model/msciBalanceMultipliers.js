@@ -1,5 +1,5 @@
 // MSCI balance multipliers based on repeated 100,000-run simulations.
-// Goal: keep first-job results roughly even and make second-job results balanced within each first-job group.
+// Third pass: tune second jobs by their own first-job group, not by a flat 12-job target.
 
 export const msciBalanceMultipliers = {
   first: {
@@ -10,26 +10,26 @@ export const msciBalanceMultipliers = {
     pirate: 1.5,
   },
   second: {
-    // Warrior group
-    fighter: 0.86,
-    page: 1.13,
-    spearman: 1.28,
+    // Warrior group target: fighter/page/spearman should split the warrior pool more evenly.
+    fighter: 1.09,
+    page: 0.97,
+    spearman: 1.11,
 
-    // Magician group
-    iceLightning: 2.6,
-    firePoison: 4.05,
-    cleric: 0.37,
+    // Magician group target: avoid cleric dominance while keeping ice/fire/cleric all viable.
+    iceLightning: 3.18,
+    firePoison: 3.37,
+    cleric: 0.35,
 
-    // Thief group
-    assassin: 0.98,
-    bandit: 0.86,
+    // Thief group target: assassin and bandit should stay close.
+    assassin: 0.96,
+    bandit: 0.88,
 
-    // Archer group
-    hunter: 1.95,
-    crossbowman: 1.03,
+    // Archer group target: hunter and crossbowman should split the archer pool.
+    hunter: 2.18,
+    crossbowman: 0.9,
 
-    // Pirate group
-    brawler: 1.1,
-    gunslinger: 1.52,
+    // Pirate group target: brawler and gunslinger should split the pirate pool.
+    brawler: 1.2,
+    gunslinger: 1.37,
   },
 };
