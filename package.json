@@ -6,8 +6,6 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:gitee": "vite build --base=/MSCI/",
-    "deploy:gitee": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gitee.ps1",
     "preview": "vite preview",
     "simulate:china": "node scripts/simulate-msci-balance.mjs --mode china --runs 100000 --seed 20260503",
     "simulate:global": "node scripts/simulate-msci-balance.mjs --mode global --runs 100000 --seed 20260503"
