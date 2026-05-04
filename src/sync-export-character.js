@@ -1,6 +1,9 @@
+import html2canvas from "html2canvas";
+
 const EXPORT_BUTTON_TEXT = "导出 PNG 图片";
 const VISIBLE_CHARACTER_SELECTOR = ".result-capture-card .result-hero .msio-character-img, .result-capture-card .result-image-panel .msio-character-img, .result-capture-card .msio-character-img";
 const EXPORT_CHARACTER_SELECTOR = ".export-share-card .msio-character-img";
+const EXPORT_TARGET_SELECTOR = ".export-share-card, .result-capture-card";
 const PERSONA_TEXT_SELECTOR = "h1, h2, h3, h4, p, b, small, span, div";
 const FLOATING_SAVE_UI_ID = "msci-floating-save-ui";
 const FLOATING_SAVE_STYLE_ID = "msci-floating-save-ui-style";
@@ -59,6 +62,8 @@ const QUESTION_REWRITES = [
     ],
   },
 ];
+
+let isSavingPng = false;
 
 function getVisibleCharacterImage() {
   return document.querySelector(VISIBLE_CHARACTER_SELECTOR);
@@ -202,39 +207,201 @@ function injectFloatingSaveStyles() {
   document.head.appendChild(style);
 }
 
-function findExportPngButton() {
-  return Array.from(document.querySelectorAll("button")).find((button) => {
-    if (!(button instanceof HTMLButtonElement)) return false;
-    if (button.closest(`#${FLOATING_SAVE_UI_ID}`)) return false;
+function isMobileBrowser() {
+  const ua = String(navigator.userAgent || "");
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+}
+
+function getExportTarget() {
+  return document.querySelector(EXPORT_TARGET_SELECTOR);
+}
+
+function getExportFileName() {
+  const code = String(document.querySelector(".result-code")?.textContent || "result")
+    .trim()
+    .replace(/[^a-z0-9_-]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "result";
+  return `MSCI-${code}.png`;
+}
+
+function setFloatingSaveBusy(isBusy, message) {
+  const button = document.querySelector(`#${FLOATING_SAVE_UI_ID} .msci-floating-save-button`);
+  const copy = document.querySelector(`#${FLOATING_SAVE_UI_ID} .msci-floating-save-copy span`);
+  if (button instanceof HTMLButtonElement) {
+    button.disabled = isBusy;
+    button.textContent = isBusy ? "生成中..." : "保存 PNG";
+  }
+  if (copy) {
+    copy.textContent = message || (isBusy
+      ? "正在生成同款 1080×1920 PNG，请稍等。"
+      : isMobileBrowser()
+        ? "iPhone：分享面板→存储图像；安卓：下载/保存图片。"
+        : "电脑端会弹出保存位置；不支持时自动下载。");
+  }
+}
+
+function setExportButtonsBusy(isBusy) {
+  document.querySelectorAll("button").forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (button.closest(`#${FLOATING_SAVE_UI_ID}`)) return;
     const text = String(button.textContent || "");
-    return text.includes(EXPORT_BUTTON_TEXT) || text.includes("正在生成 PNG 图片");
+    if (!text.includes(EXPORT_BUTTON_TEXT) && !text.includes("正在生成 PNG 图片")) return;
+    button.disabled = isBusy;
+    button.textContent = isBusy ? "正在生成 PNG 图片..." : EXPORT_BUTTON_TEXT;
   });
 }
 
-function setFloatingSaveBusy(isBusy) {
-  const button = document.querySelector(`#${FLOATING_SAVE_UI_ID} .msci-floating-save-button`);
-  const copy = document.querySelector(`#${FLOATING_SAVE_UI_ID} .msci-floating-save-copy span`);
-  if (!(button instanceof HTMLButtonElement)) return;
-  button.disabled = isBusy;
-  button.textContent = isBusy ? "生成中..." : "保存 PNG";
-  if (copy) {
-    copy.textContent = isBusy
-      ? "正在生成分享图，请等系统分享/下载面板弹出。"
-      : "iPhone：分享面板→存储图像；安卓：下载/保存图片。";
-  }
+async function waitForImages(target) {
+  const images = Array.from(target?.querySelectorAll?.("img") || []);
+  await Promise.all(
+    images.map((image) => {
+      if (image.complete) return Promise.resolve();
+      return new Promise((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          image.removeEventListener("load", finish);
+          image.removeEventListener("error", finish);
+          resolve();
+        };
+        image.addEventListener("load", finish, { once: true });
+        image.addEventListener("error", finish, { once: true });
+        window.setTimeout(finish, 2600);
+      });
+    })
+  );
 }
 
-function clickExportPngButtonFromFloating() {
-  const exportButton = findExportPngButton();
-  if (!exportButton || exportButton.disabled) {
-    document.querySelector(".action-row")?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+async function canvasToPngBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("PNG blob creation failed"));
+    }, "image/png");
+  });
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function requestDesktopSaveHandle(fileName) {
+  if (isMobileBrowser()) return null;
+  if (!window.isSecureContext || typeof window.showSaveFilePicker !== "function") return null;
+
+  return window.showSaveFilePicker({
+    suggestedName: fileName,
+    types: [
+      {
+        description: "PNG Image",
+        accept: { "image/png": [".png"] },
+      },
+    ],
+  });
+}
+
+async function writeBlobToHandle(handle, blob) {
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+async function tryMobileShare(blob, fileName) {
+  if (!isMobileBrowser() || typeof navigator.share !== "function") return false;
+  const file = new File([blob], fileName, { type: "image/png" });
+  try {
+    if (!navigator.canShare?.({ files: [file] })) return false;
+  } catch {
+    return false;
+  }
+  await navigator.share({
+    title: "MSCI 冒险岛职业人格测试",
+    text: "我的 MSCI 职业人格结果图",
+    files: [file],
+  });
+  return true;
+}
+
+async function saveResultPng() {
+  if (isSavingPng) return;
+  const target = getExportTarget();
+  if (!target) {
+    document.querySelector(".result-page")?.scrollIntoView?.({ block: "start", behavior: "smooth" });
     return;
   }
 
-  setFloatingSaveBusy(true);
-  scheduleExportCharacterSync();
-  exportButton.click();
-  window.setTimeout(() => setFloatingSaveBusy(false), 4200);
+  const fileName = getExportFileName();
+  let desktopSaveHandle = null;
+  isSavingPng = true;
+  setFloatingSaveBusy(true, isMobileBrowser() ? "正在生成 PNG，随后会弹出分享/保存面板。" : "先选择保存位置，然后会生成 PNG。");
+  setExportButtonsBusy(true);
+
+  try {
+    try {
+      desktopSaveHandle = await requestDesktopSaveHandle(fileName);
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      desktopSaveHandle = null;
+    }
+
+    document.body.classList.add("exporting-png");
+    syncPersonaNames();
+    syncQuestionRewrites();
+    syncExportCharacterImage();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await waitForImages(target);
+
+    const canvas = await html2canvas(target, {
+      backgroundColor: "#eef6ef",
+      scale: 1,
+      width: 1080,
+      height: 1920,
+      windowWidth: 1080,
+      windowHeight: 1920,
+      useCORS: true,
+      ignoreElements: (element) =>
+        element.classList?.contains("character-builder-controls") ||
+        element.dataset?.exportHidden === "true" ||
+        element.dataset?.html2canvasIgnore === "true",
+    });
+
+    const blob = await canvasToPngBlob(canvas);
+
+    if (desktopSaveHandle) {
+      await writeBlobToHandle(desktopSaveHandle, blob);
+      setFloatingSaveBusy(false, "PNG 已保存到你选择的位置。");
+      return;
+    }
+
+    const shared = await tryMobileShare(blob, fileName).catch((error) => {
+      if (error?.name === "AbortError") return true;
+      return false;
+    });
+    if (shared) {
+      setFloatingSaveBusy(false, "已打开系统分享/保存面板。iPhone 可选“存储图像”。");
+      return;
+    }
+
+    downloadBlob(blob, fileName);
+    setFloatingSaveBusy(false, isMobileBrowser() ? "PNG 已开始下载，可在下载记录里保存图片。" : "PNG 已开始下载；Chrome/Edge 可弹保存位置。");
+  } catch (error) {
+    console.error("MSCI PNG export failed", error);
+    setFloatingSaveBusy(false, "生成失败，请刷新后再试一次，或使用浏览器截图。失效原因已输出到控制台。");
+  } finally {
+    document.body.classList.remove("exporting-png");
+    isSavingPng = false;
+    setExportButtonsBusy(false);
+    window.setTimeout(() => setFloatingSaveBusy(false), 3800);
+  }
 }
 
 function ensureFloatingSaveUi() {
@@ -260,12 +427,12 @@ function ensureFloatingSaveUi() {
       <button class="msci-floating-save-button" type="button">保存 PNG</button>
       <div class="msci-floating-save-copy">
         <strong>不用滑到底，点这里生成结果图</strong>
-        <span>iPhone：分享面板→存储图像；安卓：下载/保存图片。</span>
+        <span>${isMobileBrowser() ? "iPhone：分享面板→存储图像；安卓：下载/保存图片。" : "电脑端会弹出保存位置；不支持时自动下载。"}</span>
       </div>
     </div>
   `;
 
-  wrapper.querySelector(".msci-floating-save-button")?.addEventListener("click", clickExportPngButtonFromFloating);
+  wrapper.querySelector(".msci-floating-save-button")?.addEventListener("click", saveResultPng);
   document.body.appendChild(wrapper);
 }
 
@@ -349,14 +516,31 @@ if (typeof document !== "undefined") {
     (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      schedulePersonaNameSync();
       const button = target.closest("button");
-      if (!button) return;
-      if (!String(button.textContent || "").includes(EXPORT_BUTTON_TEXT)) return;
-      scheduleExportCharacterSync();
+      const buttonText = String(button?.textContent || "");
+      const isMainExportButton =
+        button instanceof HTMLButtonElement &&
+        !button.closest(`#${FLOATING_SAVE_UI_ID}`) &&
+        (buttonText.includes(EXPORT_BUTTON_TEXT) || buttonText.includes("正在生成 PNG 图片"));
+
+      if (isMainExportButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        saveResultPng();
+        return;
+      }
+
+      schedulePersonaNameSync();
     },
-    { capture: true, passive: true }
+    { capture: true, passive: false }
   );
 }
 
-export { syncExportCharacterImage, syncPersonaNames, syncQuestionRewrites, ensureFloatingSaveUi };
+export {
+  syncExportCharacterImage,
+  syncPersonaNames,
+  syncQuestionRewrites,
+  ensureFloatingSaveUi,
+  saveResultPng,
+};
