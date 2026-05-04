@@ -14,7 +14,6 @@ import "./export-author-avatar.css";
 import "./export-final-fixes.css";
 import "./completion-auto-scroll.js";
 import "./sync-export-character.js";
-import "./brief-test-mode.js";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
