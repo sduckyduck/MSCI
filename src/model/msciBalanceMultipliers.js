@@ -1,5 +1,5 @@
-// First-pass MSCI balance multipliers based on the 2026-05-03 100,000-run simulation.
-// Baseline problem: magician and cleric were both about 52%, while pirate was about 0.10% in China mode.
+// MSCI balance multipliers based on repeated 100,000-run simulations.
+// Goal: keep first-job results roughly even and make second-job results balanced within each first-job group.
 
 export const msciBalanceMultipliers = {
   first: {
@@ -10,17 +10,26 @@ export const msciBalanceMultipliers = {
     pirate: 1.5,
   },
   second: {
-    cleric: 0.32,
-    crossbowman: 0.85,
-    bandit: 0.88,
-    page: 0.9,
-    assassin: 0.95,
-    spearman: 1,
-    fighter: 1.21,
-    brawler: 1.24,
-    gunslinger: 1.31,
-    hunter: 2.28,
-    firePoison: 2.82,
-    iceLightning: 3.75,
+    // Warrior group
+    fighter: 0.86,
+    page: 1.13,
+    spearman: 1.28,
+
+    // Magician group
+    iceLightning: 2.6,
+    firePoison: 4.05,
+    cleric: 0.37,
+
+    // Thief group
+    assassin: 0.98,
+    bandit: 0.86,
+
+    // Archer group
+    hunter: 1.95,
+    crossbowman: 1.03,
+
+    // Pirate group
+    brawler: 1.1,
+    gunslinger: 1.52,
   },
 };
