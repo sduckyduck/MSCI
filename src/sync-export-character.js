@@ -1,5 +1,4 @@
 import html2canvas from "html2canvas";
-import { msciV2Questions } from "./model/msciV2QuestionBank";
 
 const EXPORT_BUTTON_TEXT = "导出 PNG 图片";
 const VISIBLE_CHARACTER_SELECTOR = ".result-capture-card .result-hero .msio-character-img, .result-capture-card .result-image-panel .msio-character-img, .result-capture-card .msio-character-img";
@@ -8,8 +7,6 @@ const EXPORT_TARGET_SELECTOR = ".export-share-card, .result-capture-card";
 const PERSONA_TEXT_SELECTOR = "h1, h2, h3, h4, p, b, small, span, div";
 const FLOATING_SAVE_UI_ID = "msci-floating-save-ui";
 const FLOATING_SAVE_STYLE_ID = "msci-floating-save-ui-style";
-const BRIEF_TEST_TOTAL = 15;
-const FULL_MSCI_QUESTIONS = [...msciV2Questions];
 const PERSONA_RENAMES = [
   ["无敌大轮椅", "冷门信仰人"],
   ["仰卧起坐王", "后期打火机"],
@@ -67,7 +64,6 @@ const QUESTION_REWRITES = [
 ];
 
 let isSavingPng = false;
-let isStartingBriefTest = false;
 
 function getVisibleCharacterImage() {
   return document.querySelector(VISIBLE_CHARACTER_SELECTOR);
@@ -115,154 +111,12 @@ function syncQuestionRewrites() {
   });
 }
 
-function buildBriefQuestionSet(questions = FULL_MSCI_QUESTIONS, targetCount = BRIEF_TEST_TOTAL) {
-  const groups = [];
-  const groupMap = new Map();
-
-  questions.forEach((question) => {
-    const key = question.section || "其他";
-    if (!groupMap.has(key)) {
-      const group = { key, items: [] };
-      groupMap.set(key, group);
-      groups.push(group);
-    }
-    groupMap.get(key).items.push(question);
-  });
-
-  const target = Math.min(targetCount, questions.length);
-  const picks = groups.map((group) => ({
-    group,
-    take: Math.max(1, Math.floor(group.items.length / 2)),
-    cursor: Math.max(1, Math.floor(group.items.length / 2)),
-    remainder: group.items.length / 2 - Math.floor(group.items.length / 2),
-  }));
-
-  let selected = picks.flatMap((pick) => pick.group.items.slice(0, Math.min(pick.take, pick.group.items.length)));
-
-  while (selected.length < target) {
-    const nextPick = picks
-      .filter((pick) => pick.cursor < pick.group.items.length)
-      .sort((a, b) => b.remainder - a.remainder || b.group.items.length - a.group.items.length)[0];
-    if (!nextPick) break;
-    selected.push(nextPick.group.items[nextPick.cursor]);
-    nextPick.cursor += 1;
-    nextPick.remainder = 0;
-  }
-
-  if (selected.length > target) selected = selected.slice(0, target);
-  return selected;
-}
-
-function replaceQuestionPool(questions, modeName) {
-  msciV2Questions.splice(0, msciV2Questions.length, ...questions);
-  if (typeof window !== "undefined") window.__msciQuestionMode = modeName;
-}
-
-function restoreFullQuestionPool() {
-  replaceQuestionPool(FULL_MSCI_QUESTIONS, "full");
-}
-
-function useBriefQuestionPool() {
-  replaceQuestionPool(buildBriefQuestionSet(), "brief");
-}
-
-function findIntroStartButton() {
-  return Array.from(document.querySelectorAll(".intro-card button.primary-btn")).find((button) => {
-    if (!(button instanceof HTMLButtonElement)) return false;
-    if (button.dataset.msciBriefButton === "true") return false;
-    const text = String(button.textContent || "");
-    return text.includes("开始测试") || text.includes("完整模式") || text.includes("30题");
-  });
-}
-
-function ensureIntroTestModeUi() {
-  if (typeof document === "undefined") return;
-
-  injectFloatingSaveStyles();
-  const introCard = document.querySelector(".intro-card");
-  if (!introCard) return;
-
-  restoreFullQuestionPool();
-  const startButton = findIntroStartButton();
-  if (!(startButton instanceof HTMLButtonElement)) return;
-
-  startButton.textContent = `完整模式 ${FULL_MSCI_QUESTIONS.length}题`;
-  startButton.classList.add("msci-full-test-btn");
-  if (!startButton.dataset.msciFullModeBound) {
-    startButton.dataset.msciFullModeBound = "true";
-    startButton.addEventListener(
-      "click",
-      () => {
-        if (!isStartingBriefTest) restoreFullQuestionPool();
-      },
-      { capture: true }
-    );
-  }
-
-  if (!introCard.querySelector(".msci-test-mode-note")) {
-    const note = document.createElement("p");
-    note.className = "msci-test-mode-note";
-    note.textContent = "完整模式更稳，简短模式只抽每类约一半题，适合快速出结果。";
-    startButton.insertAdjacentElement("beforebegin", note);
-  }
-
-  if (introCard.querySelector(".msci-brief-test-btn")) return;
-
-  const briefButton = document.createElement("button");
-  briefButton.type = "button";
-  briefButton.className = "primary-btn msci-brief-test-btn";
-  briefButton.dataset.msciBriefButton = "true";
-  briefButton.textContent = `简短模式 ${BRIEF_TEST_TOTAL}题`;
-  briefButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    isStartingBriefTest = true;
-    useBriefQuestionPool();
-    startButton.click();
-    window.setTimeout(() => {
-      isStartingBriefTest = false;
-    }, 80);
-  });
-  startButton.insertAdjacentElement("afterend", briefButton);
-}
-
-function syncTestModeLabels() {
-  if (typeof document === "undefined") return;
-  const title = document.querySelector(".wizard-title-row h1");
-  if (!title) return;
-  const isBrief = window.__msciQuestionMode === "brief" || msciV2Questions.length === BRIEF_TEST_TOTAL;
-  title.textContent = isBrief ? "15 题简短职业人格测试" : `${FULL_MSCI_QUESTIONS.length} 题职业人格测试`;
-}
-
 function injectFloatingSaveStyles() {
   if (typeof document === "undefined" || document.getElementById(FLOATING_SAVE_STYLE_ID)) return;
 
   const style = document.createElement("style");
   style.id = FLOATING_SAVE_STYLE_ID;
   style.textContent = `
-    .msci-test-mode-note {
-      margin: 10px 0 10px;
-      color: #526277;
-      font-size: 13px;
-      line-height: 1.45;
-      text-align: center;
-    }
-
-    .msci-full-test-btn,
-    .msci-brief-test-btn {
-      width: min(100%, 360px);
-      margin-left: auto !important;
-      margin-right: auto !important;
-    }
-
-    .msci-brief-test-btn {
-      margin-top: 10px !important;
-      background: linear-gradient(180deg, #f9fbff, #edf4ff) !important;
-      color: #315d8d !important;
-      border: 1px solid rgba(49, 93, 141, 0.36) !important;
-      box-shadow: 0 8px 20px rgba(49, 93, 141, 0.12) !important;
-    }
-
     #${FLOATING_SAVE_UI_ID} {
       position: fixed;
       left: 50%;
@@ -585,28 +439,20 @@ function ensureFloatingSaveUi() {
 function schedulePersonaNameSync() {
   syncPersonaNames();
   syncQuestionRewrites();
-  ensureIntroTestModeUi();
-  syncTestModeLabels();
   ensureFloatingSaveUi();
   window.requestAnimationFrame(() => {
     syncPersonaNames();
     syncQuestionRewrites();
-    ensureIntroTestModeUi();
-    syncTestModeLabels();
     ensureFloatingSaveUi();
   });
   window.setTimeout(() => {
     syncPersonaNames();
     syncQuestionRewrites();
-    ensureIntroTestModeUi();
-    syncTestModeLabels();
     ensureFloatingSaveUi();
   }, 80);
   window.setTimeout(() => {
     syncPersonaNames();
     syncQuestionRewrites();
-    ensureIntroTestModeUi();
-    syncTestModeLabels();
     ensureFloatingSaveUi();
   }, 240);
 }
@@ -629,39 +475,29 @@ function syncExportCharacterImage() {
 function scheduleExportCharacterSync() {
   syncPersonaNames();
   syncQuestionRewrites();
-  ensureIntroTestModeUi();
-  syncTestModeLabels();
   ensureFloatingSaveUi();
   syncExportCharacterImage();
   window.requestAnimationFrame(() => {
     syncPersonaNames();
     syncQuestionRewrites();
-    ensureIntroTestModeUi();
-    syncTestModeLabels();
     ensureFloatingSaveUi();
     syncExportCharacterImage();
   });
   window.setTimeout(() => {
     syncPersonaNames();
     syncQuestionRewrites();
-    ensureIntroTestModeUi();
-    syncTestModeLabels();
     ensureFloatingSaveUi();
     syncExportCharacterImage();
   }, 60);
   window.setTimeout(() => {
     syncPersonaNames();
     syncQuestionRewrites();
-    ensureIntroTestModeUi();
-    syncTestModeLabels();
     ensureFloatingSaveUi();
     syncExportCharacterImage();
   }, 180);
   window.setTimeout(() => {
     syncPersonaNames();
     syncQuestionRewrites();
-    ensureIntroTestModeUi();
-    syncTestModeLabels();
     ensureFloatingSaveUi();
     syncExportCharacterImage();
   }, 360);
@@ -671,8 +507,6 @@ if (typeof document !== "undefined") {
   schedulePersonaNameSync();
 
   const saveUiObserver = new MutationObserver(() => {
-    ensureIntroTestModeUi();
-    syncTestModeLabels();
     ensureFloatingSaveUi();
   });
   saveUiObserver.observe(document.body, { childList: true, subtree: true });
@@ -708,6 +542,5 @@ export {
   syncPersonaNames,
   syncQuestionRewrites,
   ensureFloatingSaveUi,
-  ensureIntroTestModeUi,
   saveResultPng,
 };
